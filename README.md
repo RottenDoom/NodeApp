@@ -21,3 +21,10 @@ This will install all the dependencies required for the project if required once
 make
 ```
 This builds the NodeApp.exe you can execute.
+
+
+## Update Log (10-04-2025)
+
+- Added the OpenCV library to the project and built in a basic UI which doesn't really handles user input that much for now (only open and close)
+- The OpenCV integration was hard but I got it out of the way since fetch-content wasn't working with CMake thus I end up installing and building the library manually. I will probably include the instructions for those
+- Will start with finally building the nodes for pictures once I setup the framebuffers.

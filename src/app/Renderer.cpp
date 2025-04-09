@@ -4,6 +4,11 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
+#include "../ui/Properties.h"
+#include "../ui/Scene.h"
+
+#include "Application.h"
+
 void Renderer::Init(GLFWwindow* window) {
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -20,6 +25,9 @@ void Renderer::Init(GLFWwindow* window) {
     // Backend init
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    m_UIPanels.push_back(std::make_unique<Properties>());
+    m_UIPanels.push_back(std::make_unique<Scene>());
 }
 
 void Renderer::BeginFrame() {
@@ -50,11 +58,15 @@ void Renderer::Shutdown() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    delete this;
 }
 
 void Renderer::RenderDockSpace() {
-    static bool opt_fullscreen = true;
-    static bool opt_padding = false;
+    // Note: Switch this to true to enable dockspace
+    static bool dockspaceOpen = true;
+    static bool opt_fullscreen_persistant = true;
+    bool opt_fullscreen = opt_fullscreen_persistant;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -64,58 +76,79 @@ void Renderer::RenderDockSpace() {
         ImGui::SetNextWindowPos(viewport->Pos);
         ImGui::SetNextWindowSize(viewport->Size);
         ImGui::SetNextWindowViewport(viewport->ID);
-        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-                        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        window_flags |= ImGuiWindowFlags_MenuBar 
+                    | ImGuiWindowFlags_NoTitleBar 
+                    | ImGuiWindowFlags_NoCollapse 
+                    | ImGuiWindowFlags_NoResize 
+                    | ImGuiWindowFlags_NoMove 
+                    | ImGuiWindowFlags_NoBringToFrontOnFocus 
+                    | ImGuiWindowFlags_NoNavFocus;
     }
 
-    if (!opt_padding)
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
+			window_flags |= ImGuiWindowFlags_NoBackground;
 
-    ImGui::Begin("DockSpace Demo", nullptr, window_flags);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace Host", &dockspaceOpen, window_flags);
+    ImGui::PopStyleVar();
 
-    if (!opt_padding)
-        ImGui::PopStyleVar();
+    if (opt_fullscreen)
+        ImGui::PopStyleVar(2);
 
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiStyle& style = ImGui::GetStyle();
+    float minWinSizeX = style.WindowMinSize.x;
     if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
+        ImGuiID dockspace_id = ImGui::GetID("Host");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
 
-    // Menu bar
-    if (ImGui::BeginMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-            ImGui::MenuItem("Open", "Ctrl+O");
-            ImGui::MenuItem("Save", "Ctrl+S");
-            ImGui::EndMenu();
-        }
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Properties Panel");
-            ImGui::MenuItem("File Browser");
-            ImGui::EndMenu();
-        }
-        ImGui::EndMenuBar();
+    style.WindowMinSize.x = minWinSizeX;
+
+    if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Open Project...", "Ctrl+O"))
+					// OpenProject();
+
+				ImGui::Separator();
+
+				if (ImGui::MenuItem("New Scene", "Ctrl+N"))
+					// NewScene();
+
+				if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
+					// SaveScene();
+
+				if (ImGui::MenuItem("Save Scene As...", "Ctrl+Shift+S"))
+					// SaveSceneAs();
+
+				ImGui::Separator();
+
+				if (ImGui::MenuItem("Exit"))
+					Application::GetInstance().Close();
+				
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Script"))
+			{
+				if (ImGui::MenuItem("Reload assembly", "Ctrl+R"))
+					// ScriptEngine::ReloadAssembly();
+				
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenuBar();
+		}
+
+    ImGui::End();
+
+    for (auto& panel : m_UIPanels) {
+        panel->OnRender();
     }
-
-    ImGui::End();
-
-    // Begin your docked windows
-    ImGui::Begin("File Manager");
-    ImGui::Text("Here you will load images, save projects, etc.");
-    ImGui::End();
-
-    ImGui::Begin("Main Scene");
-    ImGui::Text("This is where your node canvas will be drawn.");
-    ImGui::End();
-
-    ImGui::Begin("Properties");
-    ImGui::Text("Parameters and sliders for selected node.");
-    ImGui::End();
-
-    ImGui::Begin("Output");
-    ImGui::Text("Final image preview or logs.");
-    ImGui::End();
 }
 
 void Renderer::Render() {

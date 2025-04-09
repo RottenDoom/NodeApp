@@ -2,12 +2,16 @@ cmake_minimum_required(VERSION 3.22)
 project(NodeApp)
 
 set(CMAKE_CXX_STANDARD 17)
-
-file(GLOB_RECURSE SOURCES src/*.cpp src/*.h)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
 set(FETCHCONTENT_BASE_DIR ${CMAKE_SOURCE_DIR}/libs/src)
+
+message(${OpenCV_DIR})
+
+set(OpenCV_DIR set(OpenCV_DIR $ENV{OpenCV_DIR}))
+find_package(OpenCV REQUIRED)
 
 # vendor/CMakeLists.txt
 FetchContent_Declare(
@@ -19,6 +23,9 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(imgui)
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.h)
+set(GLAD_SRC libs/src/glad/glad.c)
 
 set(IMGUI_SRC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -36,18 +43,6 @@ set(IMGUI_SRC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
-
-# If using GLAD
-set(GLAD_SRC libs/src/glad/glad.c)
-
-
-# include directories
-include_directories(
-    libs/include
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-)
-
 # Build executable
 add_executable(${PROJECT_NAME}
     ${SOURCES}
@@ -55,21 +50,29 @@ add_executable(${PROJECT_NAME}
     ${IMGUI_SRC}
 )
 
+# include directories
+include_directories(${PROJECT_NAME} PRIVATE
+    libs/include
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE 
     IMGUI_ENABLE_DOCKING
     IMGUI_IMPL_OPENGL_LOADER_GLAD
 )
 
-link_directories(
-    libs/lib
-    libs/src/build/src
+target_link_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/libs/lib
+    ${CMAKE_SOURCE_DIR}/libs/src/build/src
 )
+
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
+    ${OpenCV_LIBS}
     ${CMAKE_SOURCE_DIR}/libs/lib/libglfw3.a
     opengl32
 )
-
-message(STATUS "GLAD Source: ${GLAD_SRC}")
-message(STATUS "Sources: ${SOURCES}")

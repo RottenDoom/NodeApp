@@ -15,8 +15,11 @@
 
 GLFWwindow* window = nullptr;
 Renderer* renderer = nullptr;
+Application* Application::sInstance = nullptr;
 
 void Application::Init() {
+
+    m_Running = true;
     // Init GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW.\n";
@@ -51,9 +54,15 @@ void Application::Render() {
     renderer->BeginFrame();
 
     renderer->Render();
-
+    // poll events
+    
     // End frame
     renderer->EndFrame(window);
+
+    if (glfwWindowShouldClose(window)) {
+        m_Running = false;
+        return;
+    }
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -65,8 +74,15 @@ void Application::Shutdown() {
 
 void Application::Run() {
     Init();
-    while (!glfwWindowShouldClose(window)) {
+    while (m_Running) {
         Render();
     }
     Shutdown();
+}
+
+void Application::Close() {
+    m_Running = false;
+}
+
+Application::~Application() {
 }
