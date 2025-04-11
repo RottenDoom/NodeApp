@@ -1,17 +1,6 @@
-#include <glad/glad.h>
-
+#include "includes.h"
 #include "Application.h"
-#include <GLFW/glfw3.h>
-
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_opengl3.h>
-
-#include <iostream>
 #include "Renderer.h"
-
-// todo I am not going to add imgui code here bruh i am gonna make a imgui layer like cherno to add the layers that I am gonna add tomorow
-
 
 GLFWwindow* window = nullptr;
 Renderer* renderer = nullptr;
@@ -44,7 +33,7 @@ void Application::Init() {
         return;
     }
 
-    // Init rendere
+    // Init render
     renderer = new Renderer();
     renderer->Init(window);
 }
@@ -60,6 +49,9 @@ void Application::Render() {
     renderer->EndFrame(window);
 
     if (glfwWindowShouldClose(window)) {
+        // After glfwTerminate();
+        std::cout << "Press Enter to exit..." << std::endl;
+        std::cin.get();
         m_Running = false;
         return;
     }

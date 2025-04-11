@@ -1,11 +1,8 @@
+#include "includes.h"
 #include "Renderer.h"
 
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_opengl3.h>
-
-#include "../ui/Properties.h"
-#include "../ui/Scene.h"
+#include "ui/Properties.h"
+#include "ui/Scene.h"
 
 #include "Application.h"
 

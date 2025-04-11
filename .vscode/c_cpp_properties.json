@@ -1,0 +1,17 @@
+{
+    "configurations": [
+      {
+        "name": "Win32",
+        "includePath": [
+          "${workspaceFolder}/**",
+          "${env:OpenCV_DIR}\\..\\..\\..\\include"
+        ],
+        "defines": [],
+        "compilerPath": "C:\\mingw64\\bin\\g++.exe",
+        "cStandard": "c17",
+        "cppStandard": "c++17",
+        "intelliSenseMode": "windows-gcc-x64" // or "windows-msvc-x64" depending on your compiler
+      }
+    ],
+    "version": 4
+  }

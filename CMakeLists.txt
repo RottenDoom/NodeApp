@@ -8,9 +8,7 @@ include(FetchContent)
 
 set(FETCHCONTENT_BASE_DIR ${CMAKE_SOURCE_DIR}/libs/src)
 
-message(${OpenCV_DIR})
-
-set(OpenCV_DIR set(OpenCV_DIR $ENV{OpenCV_DIR}))
+set(OpenCV_DIR $ENV{OpenCV_DIR})
 find_package(OpenCV REQUIRED)
 
 # vendor/CMakeLists.txt
@@ -24,7 +22,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(imgui)
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.h)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.h src/*.c)
 set(GLAD_SRC libs/src/glad/glad.c)
 
 set(IMGUI_SRC
@@ -51,13 +49,13 @@ add_executable(${PROJECT_NAME}
 )
 
 # include directories
-include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME} PRIVATE
     libs/include
+    src
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
     ${OpenCV_INCLUDE_DIRS}
 )
-
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE 
     IMGUI_ENABLE_DOCKING
@@ -69,6 +67,8 @@ target_link_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/libs/src/build/src
 )
 
+message(STATUS ${OpenCV_DIR})
+set(OpenCV_LIBS opencv_world)
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME}

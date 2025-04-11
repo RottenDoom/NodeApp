@@ -6,7 +6,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/build/NodeApp.exe",
         "MIMode": "gdb",
-        "cwd": "${fileDirname}",
+        "cwd": "${workspaceFolder}/build",
         "miDebuggerPath": "C:\\mingw64\\bin\\gdb.exe",
         "externalConsole": true,
         "setupCommands": [
