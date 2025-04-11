@@ -2,17 +2,6 @@
 #include "includes.h"
 #include "ImageNode.h"
 
-struct NodeSocket {
-    ImVec2 position; // Position relative to node
-    int id; // unique socket ID (optional)
-};
-
-struct Node {
-    ImVec2 position;
-    std::vector<NodeSocket> inputs;
-    std::vector<NodeSocket> outputs;
-};
-
 struct NodeConnection {
     int fromNodeId;
     int fromSocketIndex;
@@ -22,7 +11,7 @@ struct NodeConnection {
 
 class NodeManager {
 public:
-    void ShowGUI(); // Called in main ImGui loop
+    //void ShowGUI();
     void AddImageNode(const char* path);
     // void ReplaceImageInNode(int nodeId, const std::string& newPath);
     void RenderNodes();

@@ -28,3 +28,4 @@ This builds the NodeApp.exe you can execute.
 - Added the OpenCV library to the project and built in a basic UI which doesn't really handles user input that much for now (only open and close)
 - The OpenCV integration was hard but I got it out of the way since fetch-content wasn't working with CMake thus I end up installing and building the library manually. I will probably include the instructions for those
 - Completed the Node integration now I can add as much node as I want. However they can't be connected for now. Will start with graph structure from today.
+- Completed Node sockets now I can connect nodes through bezier curve splines. It is kind of buggy due to ImGui though but works fine. I now have structure graph and then only node editing remains.

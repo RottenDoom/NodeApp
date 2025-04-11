@@ -3,14 +3,18 @@
 Texture::Texture(GLuint *id, unsigned int *width, unsigned int *height, const char *path)
 {
     LoadTextureFromFile(path, id, width, height);
+    originalImage = cv::imread(path, cv::IMREAD_UNCHANGED);
+    cv::resize(originalImage, previewImage, cv::Size(), scale, scale);
 }
 
 bool Texture::LoadTextureFromMemory(const void *data, size_t data_size, GLuint *out_texture, unsigned int *out_width, unsigned int *out_height)
 {
     std::vector<uchar> buffer((uchar*)data, (uchar*)data + data_size);
-    cv::Mat image = cv::imdecode(buffer, cv::IMREAD_UNCHANGED); // Decode from memory
+    originalImage = cv::imdecode(buffer, cv::IMREAD_UNCHANGED); // Decode from memory
 
-    if (image.empty()) {
+    cv::resize(originalImage, previewImage, cv::Size(), scale, scale, cv::INTER_LINEAR);
+
+    if (previewImage.empty()) {
         std::cerr << "cv::imdecode failed. Possibly invalid image data.\n";
     }
     // } else { //debuging
@@ -19,12 +23,12 @@ bool Texture::LoadTextureFromMemory(const void *data, size_t data_size, GLuint *
     // }
 
 
-    unsigned int image_width = image.cols;
-    unsigned int image_height = image.rows;
-    void* image_data = image.data;
+    unsigned int image_width = previewImage.cols;
+    unsigned int image_height = previewImage.rows;
+    void* image_data = previewImage.data;
 
-    GLenum format = image.channels() == 4 ? GL_RGBA : GL_RGB;
-    GLenum inputFormat = image.channels() == 4 ? GL_BGRA : GL_BGR;
+    GLenum format = previewImage.channels() == 4 ? GL_RGBA : GL_RGB;
+    GLenum inputFormat = previewImage.channels() == 4 ? GL_BGRA : GL_BGR;
     
     // Create a OpenGL texture identifier
     GLuint image_texture;

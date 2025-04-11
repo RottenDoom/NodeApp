@@ -88,6 +88,7 @@ void Renderer::RenderDockSpace() {
 			window_flags |= ImGuiWindowFlags_NoBackground;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    
     ImGui::Begin("DockSpace Host", &dockspaceOpen, window_flags);
     ImGui::PopStyleVar();
 
@@ -104,42 +105,44 @@ void Renderer::RenderDockSpace() {
 
     style.WindowMinSize.x = minWinSizeX;
 
+    // ImGui::ShowDemoWindow();
+
     if (ImGui::BeginMenuBar())
-		{
-			if (ImGui::BeginMenu("File"))
-			{
-				if (ImGui::MenuItem("Open Project...", "Ctrl+O"))
-					// OpenProject();
+    { 
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Open Project...", "Ctrl+O"))
+                // OpenProject();
 
-				ImGui::Separator();
+            ImGui::Separator();
 
-				if (ImGui::MenuItem("New Scene", "Ctrl+N"))
-					// NewScene();
+            if (ImGui::MenuItem("New Scene", "Ctrl+N"))
+                // NewScene();
 
-				if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
-					// SaveScene();
+            if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
+                // SaveScene();
 
-				if (ImGui::MenuItem("Save Scene As...", "Ctrl+Shift+S"))
-					// SaveSceneAs();
+            if (ImGui::MenuItem("Save Scene As...", "Ctrl+Shift+S"))
+                // SaveSceneAs();
 
-				ImGui::Separator();
+            ImGui::Separator();
 
-				if (ImGui::MenuItem("Exit"))
-					Application::GetInstance().Close();
-				
-				ImGui::EndMenu();
-			}
+            if (ImGui::MenuItem("Exit"))
+                Application::GetInstance().Close();
+            
+            ImGui::EndMenu();
+        }
 
-			if (ImGui::BeginMenu("Script"))
-			{
-				if (ImGui::MenuItem("Reload assembly", "Ctrl+R"))
-					// ScriptEngine::ReloadAssembly();
-				
-				ImGui::EndMenu();
-			}
+        if (ImGui::BeginMenu("Script"))
+        {
+            if (ImGui::MenuItem("Reload assembly", "Ctrl+R"))
+                // ScriptEngine::ReloadAssembly();
+            
+            ImGui::EndMenu();
+        }
 
-			ImGui::EndMenuBar();
-		}
+        ImGui::EndMenuBar();
+    }
 
     ImGui::End();
 

@@ -4,9 +4,9 @@
 void Scene::OnRender() {
     ImGui::Begin("Viewport");
 
-    auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
-    auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
-    auto viewportOffset = ImGui::GetWindowPos();
+    ImVec2 viewportMinRegion = ImGui::GetWindowContentRegionMin();
+    ImVec2 viewportMaxRegion = ImGui::GetWindowContentRegionMax();
+    ImVec2 viewportOffset = ImGui::GetWindowPos();
     m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
     m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
 
@@ -16,7 +16,7 @@ void Scene::OnRender() {
 
     // addNode("../assets/image.png"); // outside the build folder and then into assets
     // ImGui::SetCursorScreenPos(ImVec2(viewportOffset.x + 10, viewportOffset.y + 10));
-    ImGui::ShowDemoWindow();
+    // ImGui::ShowDemoWindow();
 
     ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoTitleBar |
@@ -27,8 +27,6 @@ void Scene::OnRender() {
         ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoBringToFrontOnFocus;
-
-    std::cout << viewportOffset.x << "', " << viewportOffset.y << "\n";
 
     ImVec2 center = ImVec2(viewportMinRegion.x + 10, viewportMinRegion.y + 10);
     ImGui::SetCursorPos(center);
@@ -58,7 +56,7 @@ void Scene::OnUpdate() {
 
 void Scene::addNode(const char* path){
     ImageNode node(path);
-    node.renderUI();
+    node.OnRender();
 }
 
 Scene::Scene()

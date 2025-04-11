@@ -1,15 +1,21 @@
 #pragma once
 #include "Texture.h"
+#include "Node.h"
 #include "Framebuffer.h"
 #include <string>
 
-class ImageNode {
+class ImageNode : public Node
+{
 public:
     ImageNode(const char* imagePath);
     ~ImageNode();
 
-    void renderUI(); // renders the node using ImGui
+    void OnRender(); // renders the node using ImGui
+    void OnUpdate();
     // void render();
+
+    ImVec2 GetInputSocketPos(int index);
+    ImVec2 GetOutputSocketPos(int index);
     void renderToFramebuffer();
 
     int nodeId;
@@ -22,4 +28,7 @@ private:
     Texture texture;
     // Framebuffer framebuffer;
     bool loaded = false;
+
+    void InitializeSockets();
+    void SetNodeSockets(ImVec2 nodeSize, ImVec2 nodePos);
 };
