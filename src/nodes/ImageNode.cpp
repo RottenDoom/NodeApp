@@ -1,6 +1,8 @@
 #include "ImageNode.h"
 #include "Texture.h"
 
+bool connectionMade = false;
+
 ImageNode::ImageNode(const char* imagePath)
     : texture(&id, &w, &h, imagePath)
     // framebuffer(texture.width, texture.height)
@@ -20,17 +22,17 @@ ImageNode::ImageNode(const char* imagePath)
 
 ImageNode::~ImageNode()
 {
-    // framebuffer.destroy();
+    
 }
 
-ImVec2 ImageNode::GetInputSocketPos(int index)
+ImVec2 ImageNode::GetInputSocketPos()
 {
-    return ImVec2();
+    return inputSocket.position;
 }
 
-ImVec2 ImageNode::GetOutputSocketPos(int index)
+ImVec2 ImageNode::GetOutputSocketPos()
 {
-    return ImVec2();
+    return outputSocket.position;
 }
 
 void ImageNode::renderToFramebuffer()
@@ -38,12 +40,11 @@ void ImageNode::renderToFramebuffer()
 }
 
 void ImageNode::InitializeSockets()
-{    
+{
+    inputSocket.nodeId = nodeId;
+    outputSocket.nodeId = nodeId;
     inputSocket.position = ImVec2(0, 0);
-    inputSocket.id = nodeId;
-
     outputSocket.position = ImVec2(0, 0);
-    outputSocket.id = nodeId + 1;
 }
 
 void ImageNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
@@ -54,10 +55,7 @@ void ImageNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 
 void ImageNode::OnRender() 
 {
-    if (!loaded) {
-        ImGui::Text("Image not loaded.");
-        return;
-    }
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
     ImVec2 viewportMinRegion = ImGui::GetWindowContentRegionMin();
     ImVec2 viewportMaxRegion = ImGui::GetWindowContentRegionMax();
@@ -65,10 +63,13 @@ void ImageNode::OnRender()
 
     m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
     m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
+    
+    if (!loaded) {
+        ImGui::Text("Image not loaded.");
+        return;
+    }
 
     std::string windowName = "Node " + std::to_string(nodeId);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-
     ImGui::Begin(
         windowName.c_str(),
         nullptr,
@@ -76,57 +77,61 @@ void ImageNode::OnRender()
     );
 
     ImGui::PushID(nodeId);
+
     ImVec2 nodeSize = ImGui::GetWindowContentRegionMax();
-    ImVec2 nodePos = ImGui::GetWindowContentRegionMin();
-
-    // std::cout << nodeSize.x << ", " << nodeSize.y << "\n";
-
-    // Draw background box (optional)
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 nodePos = ImGui::GetWindowPos();
     
     if (texture.textureid != 0) {
         ImGui::Image((ImTextureID)(intptr_t)texture.textureid, nodeSize);
     } else {
         ImGui::Text("Texture is not loaded.");
     }
-    
+
     SetNodeSockets(nodeSize, nodePos);
     
-    ImGui::SetCursorPos(nodePos);
     ImGui::BeginGroup();
-    // todo
-    ImVec2 socketSize = ImVec2(10, 10);
+
+    ImVec2 socketSize = ImVec2(50, 50);
     
-    ImGui::SetCursorScreenPos(outputSocket.position);
-    ImGui::Button("socket", socketSize);
+    // setup for the input sockets
+    ImVec2 localOutputSocketPos = ImVec2(
+        outputSocket.position.x - nodePos.x - 50,  // convert screen to local
+        outputSocket.position.y - nodePos.y -25
+    );
+
+    ImVec2 localInputSocketPos = ImVec2(
+        inputSocket.position.x - nodePos.x,
+        inputSocket.position.y - nodePos.y - 25
+    );
+
+    ImGui::SetCursorPos(localOutputSocketPos);
+    ImGui::InvisibleButton("outputSocket", socketSize);
+
     ImDrawList* fg = ImGui::GetForegroundDrawList();
     fg->AddCircleFilled(outputSocket.position, 6.0f, IM_COL32(0, 255, 0, 255));
-    // fg->AddRect()
+    ImVec2 startPos;
+    ImVec2 endPos;
     
     if (ImGui::IsItemActive()) {
-        ImVec2 startPos = outputSocket.position + socketSize * 0.5f;
-        ImVec2 endPos = ImGui::GetIO().MousePos;
-        
-        ImVec2 cp1 = startPos + ImVec2(50, 0); // control point 1
-        ImVec2 cp2 = endPos + ImVec2(-50, 0);  // control point 2
-        
-        ImGui::GetForegroundDrawList()->AddBezierCubic(
-            startPos, cp1, cp2, endPos,
-            IM_COL32(200, 200, 100, 255), 3.0f
-        );
+        NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSocket.position);
+    }
+
+    ImGui::SetCursorPos(localInputSocketPos);
+    ImGui::Button("inputSocket", socketSize);
+
+    bool hovered = ImGui::IsItemHovered();
+    bool released = ImGui::IsMouseReleased(0);
+    if (hovered && released) {
+        NodeManager::GetInstance().TryCreateConnection(this->nodeId, NodeManager::SocketType::Input);
     }
     
     ImGui::EndGroup();
-    
     ImGui::PopID();
-    
-    
     ImGui::End();
     
     ImGui::PopStyleVar();
-
-    
 }
+
 void ImageNode::OnUpdate()
 {
     

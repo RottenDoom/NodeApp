@@ -1,6 +1,7 @@
 #pragma once
 #include "Texture.h"
 #include "Node.h"
+#include "NodeManager.h"
 #include "Framebuffer.h"
 #include <string>
 
@@ -14,8 +15,8 @@ public:
     void OnUpdate();
     // void render();
 
-    ImVec2 GetInputSocketPos(int index);
-    ImVec2 GetOutputSocketPos(int index);
+    ImVec2 GetInputSocketPos();
+    ImVec2 GetOutputSocketPos();
     void renderToFramebuffer();
 
     int nodeId;

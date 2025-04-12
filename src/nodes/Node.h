@@ -10,12 +10,12 @@ public:
     virtual void OnUpdate() = 0;
 
     
-    virtual ImVec2 GetInputSocketPos(int index) = 0;
-    virtual ImVec2 GetOutputSocketPos(int index) = 0;
+    virtual ImVec2 GetInputSocketPos() = 0;
+    virtual ImVec2 GetOutputSocketPos() = 0;
     
     struct NodeSocket {
+        int nodeId;
         ImVec2 position;
-        int id;
     };
 
     int nodeId;
