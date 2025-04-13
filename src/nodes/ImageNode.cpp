@@ -3,8 +3,9 @@
 
 bool connectionMade = false;
 
-ImageNode::ImageNode(const char* imagePath)
-    : texture(&id, &w, &h, imagePath)
+ImageNode::ImageNode(const int nodeid, const char* imagePath)
+    : Node(nodeid),
+      texture(&id, &w, &h, imagePath)
     // framebuffer(texture.width, texture.height)
 {
     loaded = texture.textureid != 0;
@@ -13,7 +14,9 @@ ImageNode::ImageNode(const char* imagePath)
         return;
     }
 
-    this->nodeId = 0;
+    this->type = Node::Type::IMAGE;
+
+    this->nodeId = nodeid;
     InitializeSockets();
 
     // framebuffer.create(texture.width, texture.height);
@@ -23,6 +26,35 @@ ImageNode::ImageNode(const char* imagePath)
 ImageNode::~ImageNode()
 {
     
+}
+
+// to do add this to properties class
+void ImageNode::RenderProperties()
+{
+    ImGui::Text("Node ID: %d", nodeId);
+    ImGui::Text("Dimensions: %d x %d", texture.originalImage.cols, texture.originalImage.rows);
+    ImGui::Text("Format: %s", "RGBA");
+    ImGui::Text("File Size: %.2f MB", fileSize / 1024.0f * 1024.0f);
+
+    ImGui::Separator();
+    ImGui::Text("Here goes the preview Image.");
+    
+    // Check node type
+    if (this->GetType() == Node::Type::IMAGE) {
+        auto imageNode = std::static_pointer_cast<ImageNode>(NodeManager::GetInstance().nodeMap[NodeManager::GetInstance().selectedNodeId]);
+
+        // Preview
+        float previewWidth = 200.0f;
+        float aspectRatio = static_cast<float>(imageNode->texture.originalImage.rows) / imageNode->texture.originalImage.cols;
+        float previewHeight = previewWidth * aspectRatio;
+
+        ImGui::Text("Preview:");
+        ImGui::Image(
+            (ImTextureID)(intptr_t)imageNode->texture.textureid,
+            ImVec2(previewWidth, previewHeight),
+            ImVec2(0, 0), ImVec2(1, 1)
+        );
+    }
 }
 
 ImVec2 ImageNode::GetInputSocketPos()
@@ -87,6 +119,14 @@ void ImageNode::OnRender()
         ImGui::Text("Texture is not loaded.");
     }
 
+    ImVec2 mousePos = ImGui::GetMousePos();
+    bool isHovered = ImGui::IsMouseHoveringRect(nodePos, nodePos + nodeSize);
+    bool isClicked = isHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+
+    if (isClicked) {
+        NodeManager::GetInstance().SetSelectedNode(this->nodeId);
+    }
+
     SetNodeSockets(nodeSize, nodePos);
     
     ImGui::BeginGroup();
@@ -118,12 +158,6 @@ void ImageNode::OnRender()
 
     ImGui::SetCursorPos(localInputSocketPos);
     ImGui::Button("inputSocket", socketSize);
-
-    bool hovered = ImGui::IsItemHovered();
-    bool released = ImGui::IsMouseReleased(0);
-    if (hovered && released) {
-        NodeManager::GetInstance().TryCreateConnection(this->nodeId, NodeManager::SocketType::Input);
-    }
     
     ImGui::EndGroup();
     ImGui::PopID();
@@ -136,6 +170,10 @@ void ImageNode::OnUpdate()
 {
     
 }
+
+
+
+// TODO == clamp nodes inside only viewport.
 // drawList->AddRectFilled(nodePos, nodePos + nodeSize, IM_COL32(50, 50, 50, 255), 6.0f);
 
 // if (nodePos.x < viewportMinRegion.x) nodePos.x = viewportMinRegion.x;

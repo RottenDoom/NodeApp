@@ -14,11 +14,6 @@ void Scene::OnRender() {
 
     m_ViewportFocused = ImGui::IsWindowFocused();
     m_ViewportHovered = ImGui::IsWindowHovered();
-    
-
-    // addNode("../assets/image.png"); // outside the build folder and then into assets
-    // ImGui::SetCursorScreenPos(ImVec2(viewportOffset.x + 10, viewportOffset.y + 10));
-    // ImGui::ShowDemoWindow();
 
     ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoTitleBar |
@@ -29,6 +24,29 @@ void Scene::OnRender() {
         ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    if (ImGui::BeginPopupContextWindow("NodeEditorContext", ImGuiPopupFlags_MouseButtonRight)) {
+        if (ImGui::MenuItem("Add New Image")) {
+            const char* path = tinyfd_openFileDialog("Open Image", "", 0, nullptr, nullptr, 0);
+            if (path) {
+                NodeManager::GetInstance().AddImageNode(path);
+            }
+        }
+        if (ImGui::BeginMenu("Add Node")) {
+            if (ImGui::MenuItem("Blur")) {
+                // Add Blur node
+            }
+            if (ImGui::MenuItem("Contrast")) {
+                // Add Contrast node
+            }
+            if (ImGui::MenuItem("Brightness")) {
+                // Add Brightness node
+            }
+            // Add more node types here
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
 
     ImVec2 center = ImVec2(viewportMinRegion.x + 10, viewportMinRegion.y + 10);
     ImGui::SetCursorPos(center);

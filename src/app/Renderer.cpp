@@ -23,7 +23,6 @@ void Renderer::Init(GLFWwindow* window) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    m_UIPanels.push_back(std::make_unique<Properties>());
     m_UIPanels.push_back(std::make_unique<Scene>());
 }
 
@@ -145,6 +144,8 @@ void Renderer::RenderDockSpace() {
     }
 
     ImGui::End();
+
+    NodeManager::GetInstance().RenderPropertiesPanel();
 
     for (auto& panel : m_UIPanels) {
         panel->OnRender();

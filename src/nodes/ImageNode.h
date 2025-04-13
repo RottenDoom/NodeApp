@@ -3,16 +3,16 @@
 #include "Node.h"
 #include "NodeManager.h"
 #include "Framebuffer.h"
-#include <string>
 
 class ImageNode : public Node
 {
 public:
-    ImageNode(const char* imagePath);
+    ImageNode(const int nodeid, const char* imagePath);
     ~ImageNode();
 
     void OnRender(); // renders the node using ImGui
     void OnUpdate();
+    void RenderProperties();
     // void render();
 
     ImVec2 GetInputSocketPos();

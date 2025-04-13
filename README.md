@@ -38,3 +38,4 @@ This builds the NodeApp.exe you can execute.
 - Completed the Node integration now I can add as much node as I want. However they can't be connected for now. Will start with graph structure from today.
 - Completed Node sockets now I can connect nodes through bezier curve splines. It is kind of buggy due to ImGui though but works fine. I now have structure graph and then only node editing remains.
 - Completed the connections through sockets. The connections are visible as well as they update in the data map. The circular depencies don't exist. Just need to implement all this into the graph now.
+- Fixed the graphs. Now I can easily make a structure between graphs. Next target is to write some nodes and set the flow between them. Made some UI changes as well.

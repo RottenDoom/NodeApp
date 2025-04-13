@@ -13,11 +13,14 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+#include <set>
 #include <memory>
 #include <functional>
 #include <map>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 
 inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
