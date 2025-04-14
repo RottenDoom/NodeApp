@@ -15,18 +15,20 @@ public:
     void RenderProperties();
     // void render();
 
+    const int GetId() const;
     ImVec2 GetInputSocketPos();
     ImVec2 GetOutputSocketPos();
     void renderToFramebuffer();
+    cv::Mat GetOutputImage(int fromNodeId);
 
     int nodeId;
     unsigned int w = 0;
     unsigned int h = 0;
     GLuint id = 0;
+    Texture texture;
 
 private:
     ImVec2 m_ViewportBounds[2];
-    Texture texture;
     // Framebuffer framebuffer;
     bool loaded = false;
 

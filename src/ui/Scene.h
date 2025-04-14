@@ -11,6 +11,10 @@ public:
     Scene();
     ~Scene();
 
+    float zoom = 1.0f;
+    float minZoom = 0.25f;
+    float maxZoom = 2.5f;
+
 private:
     ImVec2 mSize;
     ImVec2 m_ViewportBounds[2];

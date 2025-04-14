@@ -15,6 +15,12 @@ void Scene::OnRender() {
     m_ViewportFocused = ImGui::IsWindowFocused();
     m_ViewportHovered = ImGui::IsWindowHovered();
 
+    float scroll = ImGui::GetIO().MouseWheel;
+    if (scroll != 0.0f && ImGui::IsWindowHovered()) {
+        zoom += scroll * 0.1f;
+        zoom = std::clamp(zoom, minZoom, maxZoom);  // Min and max zoom
+    }
+
     ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoResize |
@@ -34,7 +40,7 @@ void Scene::OnRender() {
         }
         if (ImGui::BeginMenu("Add Node")) {
             if (ImGui::MenuItem("Blur")) {
-                // Add Blur node
+                NodeManager::GetInstance().AddNode(Node::BLUR);
             }
             if (ImGui::MenuItem("Contrast")) {
                 // Add Contrast node
@@ -60,6 +66,7 @@ void Scene::OnRender() {
     }
 
     NodeManager::GetInstance().RenderNodes();
+    NodeManager::GetInstance().UpdateNodes();
 
     enum class SceneState
     {

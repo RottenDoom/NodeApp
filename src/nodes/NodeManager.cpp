@@ -1,4 +1,5 @@
 #include "NodeManager.h"
+#include "BlurNode.h"
 
 void NodeManager::AddImageNode(const char *path)
 {
@@ -14,11 +15,51 @@ void NodeManager::AddImageNode(const char *path)
     // nodeIdToIndex[id] = nodes.size() - 1;
 }
 
+void NodeManager::AddNode(const Node::Type type)
+{
+    const int id = GenerateUniqueId();
+    std::shared_ptr<Node> node = nullptr;
+    switch(type) {
+        case Node::BLUR:
+            node = std::make_shared<BlurNode>(id);
+            break;
+        case Node::CONTRAST_AND_BRIGHTNESS:
+            // do nothing for now
+            break;
+        case Node::COLOR_SPLITTER:
+            // do nothing for now
+            break;
+        default:
+            std::cerr << "Unknown node type\n";
+            return;
+            
+    }
+    if (!node) {
+        std::cerr << "Failed to create Node\n";
+        return;
+    }
+
+    node->nodeId = id;
+    nodeMap[node->nodeId] = node;
+    nodes.push_back(node);
+}
+
 void NodeManager::RenderNodes()
 {
     for (const auto& node : nodes) { // can't use const since I have to know about the nodes.
         node->OnRender();
     }
+
+    // for (const auto& connection : connections) {
+    //     int fromId = connection.fromNodeId;
+    //     int toId = connection.toNodeId;
+    //     int fromSocket = connection.fromSocketIndex;
+    //     int toSocket = connection.toSocketIndex;
+    
+    //     // Do something with the connection
+    //     // std::cout << "Connection: " << fromId << ":" << fromSocket
+    //     //           << " -> " << toId << ":" << toSocket << "\n";
+    // }
 
     // if we are currently draggin the button
     if (isDragging) {
@@ -35,17 +76,20 @@ void NodeManager::RenderNodes()
         for (auto& node : nodes) {
             if (node->nodeId == dragStartNode) continue; // if hovering over itself.
 
-            ImVec2 inputPos = node->GetInputSocketPos();
-            float radius = 25.0f;  // socket size / 2 or something similar
+            const auto& inputSockets = node->GetInputSockets();
+            for (int i = 0; i < inputSockets.size(); ++i) {
+                ImVec2 inputPos = node->GetInputSocketPos();
+                float radius = 25.0f;  // socket size / 2 or something similar
 
-            float dx = endPos.x - inputPos.x;
-            float dy = endPos.y - inputPos.y;
-            float distSquared = dx * dx + dy * dy;
+                float dx = endPos.x - inputPos.x;
+                float dy = endPos.y - inputPos.y;
+                float distSquared = dx * dx + dy * dy;
 
-            if (distSquared < radius * radius) {
-                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                    // Create connection between dragStartNode -> node->nodeId
-                    TryCreateConnection(node->nodeId, SocketType::Input);
+                if (distSquared < radius * radius) {
+                    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                        // Create connection between dragStartNode -> node->nodeId
+                        TryCreateConnection(node->nodeId, SocketType::Input, i);
+                    }
                 }
             }
         }
@@ -56,53 +100,53 @@ void NodeManager::RenderNodes()
     }
 
     // draw established connections
-    for (auto& [fromId, neighbours] : connections) {
-        auto fromNode = nodeMap[fromId];
-        for (int to : neighbours) {
-            auto& toNode = nodeMap[to];
-            if (!fromNode || !toNode) {
-                continue;
-            }
-            ImVec2 startPos = fromNode->GetOutputSocketPos();
-            ImVec2 endPos = toNode->GetInputSocketPos();
+    for (const auto& conn : connections) {
 
-            ImVec2 cp1 = startPos + ImVec2(50, 0);
-            ImVec2 cp2 = endPos + ImVec2(-50, 0);
+        auto fromNode = nodeMap[conn.fromNodeId];
+        auto toNode = nodeMap[conn.toNodeId];
 
-            ImGui::GetForegroundDrawList()->AddBezierCubic(
-                startPos, cp1, cp2, endPos, IM_COL32(100, 255, 200, 255), 3.0f
-            );
-        }
+        ImVec2 startPos = fromNode->GetOutputSocketPos();
+        ImVec2 endPos = toNode->GetInputSocketPos();
+
+        ImVec2 cp1 = startPos + ImVec2(50, 0);
+        ImVec2 cp2 = endPos + ImVec2(-50, 0);
+
+        ImGui::GetForegroundDrawList()->AddBezierCubic(
+            startPos, cp1, cp2, endPos, IM_COL32(100, 255, 200, 255), 3.0f
+        );
+    }
+}
+
+void NodeManager::UpdateNodes()
+{
+    for (auto& node : nodes) {
+        node->OnUpdate();
     }
 }
 
 // function that checks if we have started dragging and registers the values of dragging node.
-void NodeManager::StartConnectionDrag(int id, SocketType type, ImVec2 startPos)
+void NodeManager::StartConnectionDrag(int nodeId, SocketType socketType, const ImVec2& socketPos, int socketIndex)
 {
     isDragging = true;
-    dragStartNode = id;
-    dragSocketType = type;
-    dragSocketPos = startPos;
+    dragStartNode = nodeId;
+    dragSocketType = socketType;
+    dragSocketPos = socketPos;
+    dragSocketIndex = socketIndex;
 }
 
 // function that registers connections if they are suitable to connect
-void NodeManager::TryCreateConnection(int targetId, SocketType targetSocketType)
+void NodeManager::TryCreateConnection(int targetId, SocketType targetSocketType, int targetSocketIndex)
 {
     if (!isDragging || dragSocketType != SocketType::Output || targetSocketType != SocketType::Input) return;
     if (targetSocketType == dragSocketType) return;
 
-    // if (!nodeMap.contains(dragStartNode) || !nodeMap.contains(targetId)) {
-    //     std::cerr << "Invalid node ID in connection attempt\n";
-    //     return;
-    // }
-
-    if (ConnectionExists(dragStartNode, targetId)) return;
+    if (ConnectionExists(dragStartNode, targetId, dragSocketIndex, targetSocketIndex)) return;
     if (CreateCycles(dragStartNode, targetId)) {
-        // to do (ImGui warn)
         std::cerr << "Connection would create a cycle.\n";
         return;
     }
-    connections[dragStartNode].push_back(targetId);
+
+    connections.push_back({ dragStartNode, targetId, dragSocketIndex, targetSocketIndex });
     isDragging = false;
 }
 
@@ -125,48 +169,60 @@ void NodeManager::SetSelectedNode(int nodeid)
     selectedNodeId = nodeid;
 }
 
+std::optional<NodeManager::Connection> NodeManager::GetInputConnection(int nodeid, int nodeindex)
+{
+    for (const auto& conn : connections) {
+        if (conn.toNodeId == nodeid && conn.toSocketIndex == nodeindex) {
+            return conn;
+        }
+    }
+    return std::nullopt;
+}
+
+std::shared_ptr<Node> NodeManager::GetNodeById(int fromId)
+{
+    auto it = nodeMap.find(fromId);
+    if (it != nodeMap.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
 int NodeManager::GenerateUniqueId()
 {
     return nextNodeId++;
 }
 
-bool NodeManager::ConnectionExists(int fromId, int toId)
+bool NodeManager::ConnectionExists(int fromId, int toId, int fromSocketIndex, int toSocketIndex)
 {
-    auto it = connections.find(fromId);
-    if (it != connections.end()) {
-        const auto& neighbors = it->second;
-        return std::find(neighbors.begin(), neighbors.end(), toId) != neighbors.end();
+    for (const auto& conn : connections) {
+        if (conn.fromNodeId == fromId && conn.toNodeId == toId &&
+            conn.fromSocketIndex == fromSocketIndex && conn.toSocketIndex == toSocketIndex) {
+            return true;
+        }
     }
     return false;
 }
 
 bool NodeManager::CreateCycles(int fromId, int toId)
 {
-    if (dfs(toId, fromId, std::unordered_set<int>())) {
-        return true;  // cycle would be created
-    }
-
-    return false;  // safe to add connection
+    return dfs(toId, fromId, std::unordered_set<int>());
 }
 
 // dfs helper function
 bool NodeManager::dfs(int current, int target, std::unordered_set<int> visited)
 {
     // If we've visited the target node, we found a cycle
-    if (current == target) {
-        return true;
-    }
-
+    if (current == target) return true;
     visited.insert(current);
 
-    // Check all neighbors to see if there's a cycle
-    for (const auto& neighbor : connections[current]) {
-        if (visited.find(neighbor) == visited.end()) {
-            if (dfs(neighbor, target, visited)) {
-                return true;  // Found a cycle
+    for (const auto& conn : connections) {
+        if (conn.fromNodeId == current && visited.find(conn.toNodeId) == visited.end()) {
+            if (dfs(conn.toNodeId, target, visited)) {
+                return true;
             }
         }
     }
 
-    return false;  // No cycle found
+    return false;
 }

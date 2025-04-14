@@ -57,32 +57,42 @@ void ImageNode::RenderProperties()
     }
 }
 
+const int ImageNode::GetId() const
+{
+    return this->nodeId;
+}
+
 ImVec2 ImageNode::GetInputSocketPos()
 {
-    return inputSocket.position;
+    return inputSockets[0].position;
 }
 
 ImVec2 ImageNode::GetOutputSocketPos()
 {
-    return outputSocket.position;
+    return outputSockets[0].position;
 }
 
 void ImageNode::renderToFramebuffer()
 {
 }
 
+cv::Mat ImageNode::GetOutputImage(int fromNodeId)
+{
+    return texture.originalImage;
+}
+
 void ImageNode::InitializeSockets()
 {
-    inputSocket.nodeId = nodeId;
-    outputSocket.nodeId = nodeId;
-    inputSocket.position = ImVec2(0, 0);
-    outputSocket.position = ImVec2(0, 0);
+    inputSockets.resize(1);
+    outputSockets.resize(1);
 }
 
 void ImageNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
-    inputSocket.position = ImVec2(pos.x, pos.y + size.y * 0.5f);   
-    outputSocket.position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
+    inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
+    for (int i = 0; i < outputSockets.size(); i++) {
+        outputSockets[i].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
+    }
 }
 
 void ImageNode::OnRender() 
@@ -135,29 +145,31 @@ void ImageNode::OnRender()
     
     // setup for the input sockets
     ImVec2 localOutputSocketPos = ImVec2(
-        outputSocket.position.x - nodePos.x - 50,  // convert screen to local
-        outputSocket.position.y - nodePos.y -25
+        outputSockets[0].position.x - nodePos.x - 50,  // convert screen to local
+        outputSockets[0].position.y - nodePos.y -25
     );
 
     ImVec2 localInputSocketPos = ImVec2(
-        inputSocket.position.x - nodePos.x,
-        inputSocket.position.y - nodePos.y - 25
+        inputSockets[0].position.x - nodePos.x,
+        inputSockets[0].position.y - nodePos.y - 25
     );
 
     ImGui::SetCursorPos(localOutputSocketPos);
     ImGui::InvisibleButton("outputSocket", socketSize);
 
     ImDrawList* fg = ImGui::GetForegroundDrawList();
-    fg->AddCircleFilled(outputSocket.position, 6.0f, IM_COL32(0, 255, 0, 255));
+    fg->AddCircleFilled(outputSockets[0].position, 6.0f, IM_COL32(0, 255, 0, 255));
     ImVec2 startPos;
     ImVec2 endPos;
     
     if (ImGui::IsItemActive()) {
-        NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSocket.position);
+        for (int i = 0; i< outputSockets.size(); i++) {
+            NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSockets[0].position, i);
+        }
     }
 
     ImGui::SetCursorPos(localInputSocketPos);
-    ImGui::Button("inputSocket", socketSize);
+    ImGui::InvisibleButton("inputSocket", socketSize);
     
     ImGui::EndGroup();
     ImGui::PopID();

@@ -66,6 +66,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     IMGUI_IMPL_OPENGL_LOADER_GLAD
 )
 
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
 target_link_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/libs/lib
     ${CMAKE_SOURCE_DIR}/libs/src/build/src
