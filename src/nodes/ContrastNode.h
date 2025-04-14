@@ -2,10 +2,11 @@
 
 #include "Node.h"
 
-class BlurNode : public Node {
+// this is a class for both brightness and contrast nodes together.
+class ContrastNode : public Node {
 public:
-    BlurNode(int id);
-    ~BlurNode();
+    ContrastNode(int id);
+    ~ContrastNode();
 
     void OnRender() override;
     void OnUpdate() override;
@@ -25,8 +26,8 @@ private:
     void SetNodeSockets(ImVec2 nodeSize, ImVec2 nodePos);
     void InitializeSockets();
 
-    int kernelSize;
-    int blurRadius;
+    float contrast;
+    int brightness;
     float scaleFactor;
     cv::Mat inputImage;
     cv::Mat outputImage;

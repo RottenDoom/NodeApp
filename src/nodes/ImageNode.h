@@ -26,6 +26,7 @@ public:
     unsigned int h = 0;
     GLuint id = 0;
     Texture texture;
+    cv::Mat outputImage;
 
 private:
     ImVec2 m_ViewportBounds[2];

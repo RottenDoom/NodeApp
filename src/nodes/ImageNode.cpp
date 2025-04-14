@@ -76,22 +76,25 @@ void ImageNode::renderToFramebuffer()
 {
 }
 
-cv::Mat ImageNode::GetOutputImage(int fromNodeId)
+cv::Mat ImageNode::GetOutputImage(int fromNodeIndex)
 {
-    return texture.originalImage;
+    return outputImage;
 }
 
 void ImageNode::InitializeSockets()
 {
-    inputSockets.resize(1);
+    inputSockets.resize(0);
     outputSockets.resize(1);
 }
 
 void ImageNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
-    inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
-    for (int i = 0; i < outputSockets.size(); i++) {
-        outputSockets[i].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
+    if (!inputSockets.empty()) {
+        inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
+    }
+    float spacing = size.y / (outputSockets.size() + 1);
+    for (int i = 0; i < outputSockets.size(); ++i) {
+        outputSockets[i].position = ImVec2(pos.x + size.x, pos.y + spacing * (i + 1));
     }
 }
 
@@ -144,32 +147,34 @@ void ImageNode::OnRender()
     ImVec2 socketSize = ImVec2(50, 50);
     
     // setup for the input sockets
-    ImVec2 localOutputSocketPos = ImVec2(
-        outputSockets[0].position.x - nodePos.x - 50,  // convert screen to local
-        outputSockets[0].position.y - nodePos.y -25
-    );
+    for (int i = 0; i < outputSockets.size(); i++) {
+        ImVec2 localOutputSocketPos = ImVec2(
+            outputSockets[i].position.x - nodePos.x - 50,  // convert screen to local
+            outputSockets[i].position.y - nodePos.y -25
+        );
 
-    ImVec2 localInputSocketPos = ImVec2(
-        inputSockets[0].position.x - nodePos.x,
-        inputSockets[0].position.y - nodePos.y - 25
-    );
-
-    ImGui::SetCursorPos(localOutputSocketPos);
-    ImGui::InvisibleButton("outputSocket", socketSize);
-
-    ImDrawList* fg = ImGui::GetForegroundDrawList();
-    fg->AddCircleFilled(outputSockets[0].position, 6.0f, IM_COL32(0, 255, 0, 255));
-    ImVec2 startPos;
-    ImVec2 endPos;
-    
-    if (ImGui::IsItemActive()) {
-        for (int i = 0; i< outputSockets.size(); i++) {
-            NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSockets[0].position, i);
+        ImGui::SetCursorPos(localOutputSocketPos);
+        ImGui::InvisibleButton(("outputSocket" + std::to_string(i)).c_str(), ImVec2(50, 50));
+        
+        ImDrawList* fg = ImGui::GetForegroundDrawList();
+        fg->AddCircleFilled(outputSockets[i].position, 6.0f, IM_COL32(0, 255, 0, 255));
+        
+        if (ImGui::IsItemActive()) {
+            for (int i = 0; i< outputSockets.size(); i++) {
+                NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSockets[i].position, i);
+            }
         }
     }
+    
+    if (!inputSockets.empty()) {
+        ImVec2 localInputSocketPos = ImVec2(
+            inputSockets[0].position.x - nodePos.x,
+            inputSockets[0].position.y - nodePos.y - 25
+        );
 
-    ImGui::SetCursorPos(localInputSocketPos);
-    ImGui::InvisibleButton("inputSocket", socketSize);
+        ImGui::SetCursorPos(localInputSocketPos);
+        ImGui::InvisibleButton("inputSocket", socketSize);
+    }
     
     ImGui::EndGroup();
     ImGui::PopID();
@@ -180,7 +185,9 @@ void ImageNode::OnRender()
 
 void ImageNode::OnUpdate()
 {
-    
+    if (outputImage.empty()) {
+        outputImage = texture.originalImage.clone(); // clone if you expect downstream processing to modify
+    }
 }
 
 

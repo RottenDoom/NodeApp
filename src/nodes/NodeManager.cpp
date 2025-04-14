@@ -1,5 +1,7 @@
 #include "NodeManager.h"
 #include "BlurNode.h"
+#include "ContrastNode.h"
+#include "ThresholdNode.h"
 
 void NodeManager::AddImageNode(const char *path)
 {
@@ -24,10 +26,21 @@ void NodeManager::AddNode(const Node::Type type)
             node = std::make_shared<BlurNode>(id);
             break;
         case Node::CONTRAST_AND_BRIGHTNESS:
-            // do nothing for now
+            node = std::make_shared<ContrastNode>(id);
             break;
         case Node::COLOR_SPLITTER:
             // do nothing for now
+            break;
+        case Node::THRESHOLD:
+            node = std::make_shared<ThresholdNode>(id);
+            break;
+        case Node::EDGE_DETECTION:
+            break;
+        case Node::BLEND_NODE:
+            break;
+        case Node::NOISE_GEN:
+            break;
+        case Node::CONVULATIONAL:
             break;
         default:
             std::cerr << "Unknown node type\n";
@@ -50,16 +63,16 @@ void NodeManager::RenderNodes()
         node->OnRender();
     }
 
-    // for (const auto& connection : connections) {
-    //     int fromId = connection.fromNodeId;
-    //     int toId = connection.toNodeId;
-    //     int fromSocket = connection.fromSocketIndex;
-    //     int toSocket = connection.toSocketIndex;
+    for (const auto& connection : connections) {
+        int fromId = connection.fromNodeId;
+        int toId = connection.toNodeId;
+        int fromSocket = connection.fromSocketIndex;
+        int toSocket = connection.toSocketIndex;
     
-    //     // Do something with the connection
-    //     // std::cout << "Connection: " << fromId << ":" << fromSocket
-    //     //           << " -> " << toId << ":" << toSocket << "\n";
-    // }
+        // Do something with the connection
+        std::cout << "Connection: from Node " << fromId << ":" << "fromsocketIndex: " << fromSocket
+                  << " -> to Node " << toId << ":" << "tosocketIndex: " << toSocket << "\n";
+    }
 
     // if we are currently draggin the button
     if (isDragging) {

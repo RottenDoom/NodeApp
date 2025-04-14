@@ -11,6 +11,11 @@ public:
         BLUR,
         CONTRAST_AND_BRIGHTNESS,
         COLOR_SPLITTER,
+        THRESHOLD,
+        EDGE_DETECTION,
+        BLEND_NODE,
+        NOISE_GEN,
+        CONVULATIONAL,
     };
 
     virtual void OnRender() = 0;

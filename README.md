@@ -31,7 +31,7 @@ make
 This builds the NodeApp.exe you can execute.
 
 
-## Update Log (11-04-2025)
+## Update Log (15-04-2025)
 
 - Added the OpenCV library to the project and built in a basic UI which doesn't really handles user input that much for now (only open and close)
 - The OpenCV integration was hard but I got it out of the way since fetch-content wasn't working with CMake thus I end up installing and building the library manually. I will probably include the instructions for those
@@ -39,3 +39,4 @@ This builds the NodeApp.exe you can execute.
 - Completed Node sockets now I can connect nodes through bezier curve splines. It is kind of buggy due to ImGui though but works fine. I now have structure graph and then only node editing remains.
 - Completed the connections through sockets. The connections are visible as well as they update in the data map. The circular depencies don't exist. Just need to implement all this into the graph now.
 - Fixed the graphs. Now I can easily make a structure between graphs. Next target is to write some nodes and set the flow between them. Made some UI changes as well.
+- Added more type of nodes for processing image. Need to handle edge cases related to graphs. Also error handling is a bit bland so gotta fix these issues. The socket structure needs to be restructured and refactored.

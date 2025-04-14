@@ -1,29 +1,27 @@
-#include "BlurNode.h"
+#include "ContrastNode.h"
 #include "NodeManager.h"
 
-static int blurMode = 0;
-
-BlurNode::BlurNode(int nodeid)
+ContrastNode::ContrastNode(int nodeid)
     : Node(nodeid)
 {
-    type = BLUR;
+    type = CONTRAST_AND_BRIGHTNESS;
     position = ImVec2(100, 100);
-    blurRadius = 5;
+    brightness = 100;
 
     this->nodeId = nodeid;
     InitializeSockets();
 }
 
-BlurNode::~BlurNode()
+ContrastNode::~ContrastNode()
 {
 }
 
-void BlurNode::OnRender()
+void ContrastNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Blur Node " + std::to_string(nodeId);
+    std::string windowName = "Contrast Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -109,7 +107,7 @@ void BlurNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void BlurNode::OnUpdate()
+void ContrastNode::OnUpdate()
 {
     auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
     if (!connOpt.has_value()) return;
@@ -119,23 +117,22 @@ void BlurNode::OnUpdate()
     if (!fromNode) return;
 
     inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
-    if (inputImage.empty()) {
-        std::cout << "Iamcalled\n";
-        return;
-    }
-    // apply the blur filter with kernel size and blur radius.
-    cv::Mat blurred;
-    cv::GaussianBlur(inputImage, blurred, cv::Size(kernelSize, kernelSize), blurRadius);
+    if (inputImage.empty()) return;
 
-    this->outputImage = blurred;
+    // Apply a blur filter
+    cv::Mat result;
+    inputImage.convertTo(result, -1, contrast, brightness);
+
+    // Store result in this node's image
+    this->outputImage = result;
     this->inputConnected = true;
 
     UpdateTexture();
 }
 
-void BlurNode::RenderProperties()
+void ContrastNode::RenderProperties()
 {
-    ImGui::Text("Blur Node Properties");
+    ImGui::Text("BrightNess & Contrast");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
@@ -147,56 +144,40 @@ void BlurNode::RenderProperties()
         return;
     }
 
-    ImGui::Text("Blur Properties:");
-    ImGui::SliderInt("Radius", &blurRadius, 1, 20);
-    kernelSize = 2 * blurRadius + 1;
-
-    const char* blurModes[] = { "Uniform", "Horizontal", "Vertical" };
-    ImGui::Combo("Mode", &blurMode, blurModes, IM_ARRAYSIZE(blurModes));
-
-    if (blurMode == 0) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, kernelSize), blurRadius);
+    ImGui::PushID("BrightnessSlider");
+    ImGui::SliderInt("##Brightness", &brightness, -100, 100);
+    ImGui::SameLine();
+    if (ImGui::Button("Reset##Brightness")) {
+        brightness = 0;
     }
-    else if (blurMode == 1) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, 1), blurRadius);
-    }
-    else{
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(1, kernelSize), blurRadius);
-    }
-    // Generate Gaussian kernel using OpenCV
-    cv::Mat kernelX = cv::getGaussianKernel(kernelSize, blurRadius);
-    cv::Mat kernel2D = kernelX * kernelX.t();
+    ImGui::PopID();
 
-    // Normalize for visualization
-    cv::normalize(kernel2D, kernel2D, 0, 1, cv::NORM_MINMAX);
-
-    // Display kernel
-    ImGui::Text("Kernel:");
-    for (int i = 0; i < kernel2D.rows; ++i) {
-        for (int j = 0; j < kernel2D.cols; ++j) {
-            ImGui::Text("%.2f ", kernel2D.at<double>(i, j));
-            ImGui::SameLine();
-        }
-        ImGui::NewLine();
+    // Contrast slider with reset
+    ImGui::PushID("ContrastSlider");
+    ImGui::SliderFloat("##Contrast", &contrast, 0.0f, 3.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Reset##Contrast")) {
+        contrast = 1.0f;
     }
+    ImGui::PopID();
 }
 
-ImVec2 BlurNode::GetInputSocketPos()
+ImVec2 ContrastNode::GetInputSocketPos()
 {
     return inputSockets[0].position;
 }
 
-ImVec2 BlurNode::GetOutputSocketPos()
+ImVec2 ContrastNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void BlurNode::SetInputImage(const cv::Mat& img)
+void ContrastNode::SetInputImage(const cv::Mat& img)
 {
     inputImage = img;
 }
 
-void BlurNode::UpdateTexture()
+void ContrastNode::UpdateTexture()
 {
     if (this->inputImage.empty()) return;
 
@@ -224,24 +205,25 @@ void BlurNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void BlurNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void ContrastNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
     inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
+    inputSockets[1].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
     outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
 }
 
-void BlurNode::InitializeSockets()
+void ContrastNode::InitializeSockets()
 {
     inputSockets.resize(1);
     outputSockets.resize(1);
 }
 
-cv::Mat BlurNode::GetOutputImage(int fromNodeIndex)
+cv::Mat ContrastNode::GetOutputImage(int fromNodeId)
 {
     return outputImage;
 }
 
-void BlurNode::ExportImage(const char *path)
+void ContrastNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);

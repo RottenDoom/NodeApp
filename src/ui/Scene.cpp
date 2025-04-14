@@ -42,11 +42,26 @@ void Scene::OnRender() {
             if (ImGui::MenuItem("Blur")) {
                 NodeManager::GetInstance().AddNode(Node::BLUR);
             }
-            if (ImGui::MenuItem("Contrast")) {
-                // Add Contrast node
+            if (ImGui::MenuItem("Contrast/Brightness")) {
+                NodeManager::GetInstance().AddNode(Node::CONTRAST_AND_BRIGHTNESS);
             }
-            if (ImGui::MenuItem("Brightness")) {
-                // Add Brightness node
+            if (ImGui::MenuItem("Color Splitter")) {
+                NodeManager::GetInstance().AddNode(Node::COLOR_SPLITTER);
+            }
+            if (ImGui::MenuItem("Threshold")) {
+                NodeManager::GetInstance().AddNode(Node::THRESHOLD);
+            }
+            if (ImGui::MenuItem("Edge Detection")) {
+                NodeManager::GetInstance().AddNode(Node::EDGE_DETECTION);
+            }
+            if (ImGui::MenuItem("Blend")) {
+                NodeManager::GetInstance().AddNode(Node::BLEND_NODE);
+            }
+            if (ImGui::MenuItem("Noise Generation")) {
+                NodeManager::GetInstance().AddNode(Node::NOISE_GEN);
+            }
+            if (ImGui::MenuItem("Convulational Filter")) {
+                NodeManager::GetInstance().AddNode(Node::CONVULATIONAL);
             }
             // Add more node types here
             ImGui::EndMenu();

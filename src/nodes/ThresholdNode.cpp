@@ -1,29 +1,30 @@
-#include "BlurNode.h"
+#include "ThresholdNode.h"
 #include "NodeManager.h"
 
-static int blurMode = 0;
-
-BlurNode::BlurNode(int nodeid)
+ThresholdNode::ThresholdNode(int nodeid)
     : Node(nodeid)
 {
-    type = BLUR;
+    type = CONTRAST_AND_BRIGHTNESS;
     position = ImVec2(100, 100);
-    blurRadius = 5;
+    threshValue = 128.0f;
+    blockSize = 11;
+    float C = 2.0f;
+    thresholdMethod = ThresholdMethod::Binary;
 
     this->nodeId = nodeid;
     InitializeSockets();
 }
 
-BlurNode::~BlurNode()
+ThresholdNode::~ThresholdNode()
 {
 }
 
-void BlurNode::OnRender()
+void ThresholdNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Blur Node " + std::to_string(nodeId);
+    std::string windowName = "Threshold Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -109,7 +110,7 @@ void BlurNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void BlurNode::OnUpdate()
+void ThresholdNode::OnUpdate()
 {
     auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
     if (!connOpt.has_value()) return;
@@ -119,27 +120,58 @@ void BlurNode::OnUpdate()
     if (!fromNode) return;
 
     inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
-    if (inputImage.empty()) {
-        std::cout << "Iamcalled\n";
-        return;
-    }
-    // apply the blur filter with kernel size and blur radius.
-    cv::Mat blurred;
-    cv::GaussianBlur(inputImage, blurred, cv::Size(kernelSize, kernelSize), blurRadius);
+    if (inputImage.empty()) return;
 
-    this->outputImage = blurred;
+    cv::Mat gray;
+    if (inputImage.channels() == 3 || inputImage.channels() == 4)
+        cv::cvtColor(inputImage, gray, cv::COLOR_BGR2GRAY);
+    else
+        gray = inputImage;
+
+    // Apply a blur filter
+    cv::Mat result;
+    switch (thresholdMethod)
+    {
+        case ThresholdMethod::Binary:
+            cv::threshold(gray, result, threshValue, 255, cv::THRESH_BINARY);
+            break;
+
+        case ThresholdMethod::Otsu:
+            cv::threshold(gray, result, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+            break;
+
+        case ThresholdMethod::AdaptiveMean:
+            if (blockSize % 2 == 0) blockSize += 1; // Ensure blockSize is odd
+            cv::adaptiveThreshold(gray, result, 255,
+                                  cv::ADAPTIVE_THRESH_MEAN_C,
+                                  cv::THRESH_BINARY,
+                                  blockSize, C);
+            break;
+
+        case ThresholdMethod::AdaptiveGaussian:
+            if (blockSize % 2 == 0) blockSize += 1;
+            cv::adaptiveThreshold(gray, result, 255,
+                                  cv::ADAPTIVE_THRESH_GAUSSIAN_C,
+                                  cv::THRESH_BINARY,
+                                  blockSize, C);
+            break;
+    }
+
+
+    // Store result in this node's image
+    this->outputImage = result;
     this->inputConnected = true;
 
     UpdateTexture();
 }
 
-void BlurNode::RenderProperties()
+void ThresholdNode::RenderProperties()
 {
-    ImGui::Text("Blur Node Properties");
+    ImGui::Text("Threshold Node");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
-        ImGui::Image((ImTextureID)(intptr_t)id, ImVec2(160, 90)); // You can adjust the preview size here
+        ImGui::Image((ImTextureID)(intptr_t)id, ImVec2(160, 90));
         ImGui::Spacing();
     } else {
         ImGui::TextColored(ImVec4(1, 1, 0, 1), "No output image available.");
@@ -147,56 +179,36 @@ void BlurNode::RenderProperties()
         return;
     }
 
-    ImGui::Text("Blur Properties:");
-    ImGui::SliderInt("Radius", &blurRadius, 1, 20);
-    kernelSize = 2 * blurRadius + 1;
+    const char* methods[] = { "Binary", "Otsu", "Adaptive Mean", "Adaptive Gaussian" };
+    int methodIndex = static_cast<int>(thresholdMethod);
+    if (ImGui::Combo("Method", &methodIndex, methods, IM_ARRAYSIZE(methods)))
+        thresholdMethod = static_cast<ThresholdMethod>(methodIndex);
 
-    const char* blurModes[] = { "Uniform", "Horizontal", "Vertical" };
-    ImGui::Combo("Mode", &blurMode, blurModes, IM_ARRAYSIZE(blurModes));
-
-    if (blurMode == 0) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, kernelSize), blurRadius);
+    if (thresholdMethod == ThresholdMethod::Binary) {
+        ImGui::SliderFloat("Threshold", &threshValue, 0.0f, 255.0f);
     }
-    else if (blurMode == 1) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, 1), blurRadius);
-    }
-    else{
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(1, kernelSize), blurRadius);
-    }
-    // Generate Gaussian kernel using OpenCV
-    cv::Mat kernelX = cv::getGaussianKernel(kernelSize, blurRadius);
-    cv::Mat kernel2D = kernelX * kernelX.t();
-
-    // Normalize for visualization
-    cv::normalize(kernel2D, kernel2D, 0, 1, cv::NORM_MINMAX);
-
-    // Display kernel
-    ImGui::Text("Kernel:");
-    for (int i = 0; i < kernel2D.rows; ++i) {
-        for (int j = 0; j < kernel2D.cols; ++j) {
-            ImGui::Text("%.2f ", kernel2D.at<double>(i, j));
-            ImGui::SameLine();
-        }
-        ImGui::NewLine();
+    if (thresholdMethod == ThresholdMethod::AdaptiveMean || thresholdMethod == ThresholdMethod::AdaptiveGaussian) {
+        ImGui::SliderInt("Block Size", &blockSize, 3, 31);
+        ImGui::SliderFloat("C", &C, -10.0f, 10.0f);
     }
 }
 
-ImVec2 BlurNode::GetInputSocketPos()
+ImVec2 ThresholdNode::GetInputSocketPos()
 {
     return inputSockets[0].position;
 }
 
-ImVec2 BlurNode::GetOutputSocketPos()
+ImVec2 ThresholdNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void BlurNode::SetInputImage(const cv::Mat& img)
+void ThresholdNode::SetInputImage(const cv::Mat& img)
 {
     inputImage = img;
 }
 
-void BlurNode::UpdateTexture()
+void ThresholdNode::UpdateTexture()
 {
     if (this->inputImage.empty()) return;
 
@@ -224,24 +236,25 @@ void BlurNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void BlurNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void ThresholdNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
     inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
+    inputSockets[1].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
     outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
 }
 
-void BlurNode::InitializeSockets()
+void ThresholdNode::InitializeSockets()
 {
     inputSockets.resize(1);
     outputSockets.resize(1);
 }
 
-cv::Mat BlurNode::GetOutputImage(int fromNodeIndex)
+cv::Mat ThresholdNode::GetOutputImage(int fromNodeId)
 {
     return outputImage;
 }
 
-void BlurNode::ExportImage(const char *path)
+void ThresholdNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);
