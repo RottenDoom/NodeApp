@@ -2,17 +2,26 @@
 
 #include "Node.h"
 
-// threshold node for applying binary operations onto the nodes. Otsu and Adaptive modes available
-class ThresholdNode : public Node {
+// Nodes that can Sharpen or Emboss edges for higher beautification.
+class ConvolutionNode : public Node {
 public:
-    ThresholdNode(int id);
-    ~ThresholdNode();
+    ConvolutionNode(int id);
+    ~ConvolutionNode();
 
-    enum class ThresholdMethod {
-        Binary,
-        Otsu,
-        AdaptiveMean,
-        AdaptiveGaussian
+    enum class KernelPreset {
+        Custom,
+        Identity,
+        Blur,
+        Sharpen,
+        Edge,
+        Emboss
+    };
+
+    KernelPreset preset = KernelPreset::Custom;
+    std::vector<float> kernel = {
+        0, 0, 0,
+        0, 1, 0,
+        0, 0, 0
     };
 
     void OnRender() override;
@@ -33,14 +42,10 @@ private:
     void SetNodeSockets(ImVec2 nodeSize, ImVec2 nodePos);
     void InitializeSockets();
 
-    float threshValue;
-    int blockSize;
-    float C;
-    ThresholdMethod thresholdMethod;
-    bool useOtsu = false;
-    float histogramDataArray[256];
-    cv::Mat hist;
+    int kernelSize; // 3 or 5
+    float normalization;
     float scaleFactor;
+    void ApplyPreset(KernelPreset p);
     cv::Mat inputImage;
     cv::Mat outputImage;
 };

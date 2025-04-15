@@ -12,7 +12,7 @@ public:
     void OnUpdate() override;
     void RenderProperties() override;
 
-    ImVec2 GetInputSocketPos() override;
+    ImVec2 GetInputSocketPos(int index) override;
     ImVec2 GetOutputSocketPos() override;
 
     void SetInputImage(const cv::Mat& img);

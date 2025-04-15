@@ -1,27 +1,34 @@
-#include "ContrastNode.h"
+#include "EdgeNode.h"
 #include "NodeManager.h"
 
-ContrastNode::ContrastNode(int nodeid)
-    : Node(nodeid)
+static int blurMode = 0;
+
+EdgeDetectionNode::EdgeDetectionNode(int nodeid)
+  : Node(nodeid),  // name + default size
+    method(Method::Sobel),
+    sobelKernelSize(3),
+    cannyThreshold1(100),
+    cannyThreshold2(200),
+    overlayEdges(false),
+    scaleFactor(1.0f),
+    inputConnected(false)
 {
-    type = CONTRAST_AND_BRIGHTNESS;
+    type = EDGE_DETECTION;
     position = ImVec2(100, 100);
-    brightness = 100;
-
-    this->nodeId = nodeid;
     InitializeSockets();
+    UpdateTexture();
 }
 
-ContrastNode::~ContrastNode()
+EdgeDetectionNode::~EdgeDetectionNode()
 {
 }
 
-void ContrastNode::OnRender()
+void EdgeDetectionNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Contrast Node " + std::to_string(nodeId);
+    std::string windowName = "Edge Detection Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -107,7 +114,7 @@ void ContrastNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void ContrastNode::OnUpdate()
+void EdgeDetectionNode::OnUpdate()
 {
     auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
     if (!connOpt.has_value()) return;
@@ -117,22 +124,48 @@ void ContrastNode::OnUpdate()
     if (!fromNode) return;
 
     inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
-    if (inputImage.empty()) return;
+    if (inputImage.empty()) {
+        std::cerr << "inputImage is empty!" << std::endl;
+        return;
+    }
+    cv::Mat gray;
+    if (inputImage.channels() == 3)
+        cv::cvtColor(inputImage, gray, cv::COLOR_BGR2GRAY);
+    else if (inputImage.channels() == 4)
+        cv::cvtColor(inputImage, gray, cv::COLOR_BGRA2GRAY);
+    else
+        gray = inputImage;
 
-    // Apply a blur filter
-    cv::Mat result;
-    inputImage.convertTo(result, -1, contrast, brightness);
+    if (method == Method::Sobel) {
+        cv::Mat gradX, gradY;
+        cv::Sobel(gray, gradX, CV_16S, 1, 0, sobelKernelSize);
+        cv::Sobel(gray, gradY, CV_16S, 0, 1, sobelKernelSize);
 
-    // Store result in this node's image
-    this->outputImage = result;
-    this->inputConnected = true;
+        cv::Mat absX, absY;
+        cv::convertScaleAbs(gradX, absX);
+        cv::convertScaleAbs(gradY, absY);
+        cv::addWeighted(absX, 0.5, absY, 0.5, 0, edgeImage);
+    } else if (method == Method::Canny) {
+        cv::Canny(gray, edgeImage, cannyThreshold1, cannyThreshold2);
+    }
 
+    if (overlayEdges) {
+        cv::Mat colorEdges;
+        cv::cvtColor(edgeImage, colorEdges, cv::COLOR_GRAY2BGR);
+        cv::Mat overlayed;
+        cv::addWeighted(inputImage, 0.8, colorEdges, 0.5, 0, overlayed);
+        outputImage = overlayed;
+    } else {
+        cv::cvtColor(edgeImage, outputImage, cv::COLOR_GRAY2BGR);
+    }
+
+    inputConnected = true;
     UpdateTexture();
 }
 
-void ContrastNode::RenderProperties()
+void EdgeDetectionNode::RenderProperties()
 {
-    ImGui::Text("BrightNess & Contrast");
+    ImGui::Text("Edge Detection Properties");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
@@ -144,40 +177,36 @@ void ContrastNode::RenderProperties()
         return;
     }
 
-    ImGui::PushID("BrightnessSlider");
-    ImGui::SliderInt("##Brightness", &brightness, -100, 100);
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Brightness")) {
-        brightness = 0;
-    }
-    ImGui::PopID();
+    const char* methods[] = { "Sobel", "Canny" };
+    ImGui::Combo("Method", (int*)&method, methods, IM_ARRAYSIZE(methods));
 
-    // Contrast slider with reset
-    ImGui::PushID("ContrastSlider");
-    ImGui::SliderFloat("##Contrast", &contrast, 0.0f, 3.0f, "%.2f");
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Contrast")) {
-        contrast = 1.0f;
+    if (method == Method::Sobel) {
+        ImGui::SliderInt("Sobel Kernel Size", &sobelKernelSize, 1, 7);
+        if (sobelKernelSize % 2 == 0) sobelKernelSize += 1;
+    } else {
+        ImGui::SliderInt("Canny Threshold 1", &cannyThreshold1, 0, 255);
+        ImGui::SliderInt("Canny Threshold 2", &cannyThreshold2, 0, 255);
     }
-    ImGui::PopID();
+
+    ImGui::Checkbox("Overlay Edges", &overlayEdges);
 }
 
-ImVec2 ContrastNode::GetInputSocketPos(int index)
+ImVec2 EdgeDetectionNode::GetInputSocketPos(int index)
 {
     return inputSockets[index].position;
 }
 
-ImVec2 ContrastNode::GetOutputSocketPos()
+ImVec2 EdgeDetectionNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void ContrastNode::SetInputImage(const cv::Mat& img)
+void EdgeDetectionNode::SetInputImage(const cv::Mat& img)
 {
     inputImage = img;
 }
 
-void ContrastNode::UpdateTexture()
+void EdgeDetectionNode::UpdateTexture()
 {
     if (this->inputImage.empty()) return;
 
@@ -205,25 +234,24 @@ void ContrastNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ContrastNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void EdgeDetectionNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
     inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
-    inputSockets[1].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
     outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
 }
 
-void ContrastNode::InitializeSockets()
+void EdgeDetectionNode::InitializeSockets()
 {
     inputSockets.resize(1);
     outputSockets.resize(1);
 }
 
-cv::Mat ContrastNode::GetOutputImage(int fromNodeId)
+cv::Mat EdgeDetectionNode::GetOutputImage(int fromNodeIndex)
 {
     return outputImage;
 }
 
-void ContrastNode::ExportImage(const char *path)
+void EdgeDetectionNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);

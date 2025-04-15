@@ -4,7 +4,7 @@
 void Scene::OnRender() {
     ImGui::Begin("Viewport");
 
-    ShowMousePosition();
+    // ShowMousePosition();
 
     ImVec2 viewportMinRegion = ImGui::GetWindowContentRegionMin();
     ImVec2 viewportMaxRegion = ImGui::GetWindowContentRegionMax();
@@ -73,12 +73,9 @@ void Scene::OnRender() {
     ImGui::SetCursorPos(center);
     ImGui::SetNextWindowBgAlpha(0.5f);
 
-    if (ImGui::Button("New Image")) {
-        const char* path = tinyfd_openFileDialog("Open Image", "", 0, nullptr, nullptr, 0);
-        if (path) {
-            NodeManager::GetInstance().AddImageNode(path);
-        }
-    }
+    // if (ImGui::Button("Reset")) {
+    //     NodeManager::GetInstance().Reset();
+    // }
 
     NodeManager::GetInstance().RenderNodes();
     NodeManager::GetInstance().UpdateNodes();

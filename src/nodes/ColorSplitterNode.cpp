@@ -1,29 +1,29 @@
-#include "BlurNode.h"
+#include "ColorSplitterNode.h"
 #include "NodeManager.h"
 
 static int blurMode = 0;
 
-BlurNode::BlurNode(int nodeid)
-    : Node(nodeid)
+ColorSplitterNode::ColorSplitterNode(int nodeid)
+  : Node(nodeid),  // name + default size
+    inputConnected(false)
 {
-    type = BLUR;
+    type = COLOR_SPLITTER;
     position = ImVec2(100, 100);
-    blurRadius = 5;
-
-    this->nodeId = nodeid;
+    mode = OutputMode::RGB;
+    selectedChannel = 0;
     InitializeSockets();
 }
 
-BlurNode::~BlurNode()
+ColorSplitterNode::~ColorSplitterNode()
 {
 }
 
-void BlurNode::OnRender()
+void ColorSplitterNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Blur Node " + std::to_string(nodeId);
+    std::string windowName = "Color Splitter Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -109,7 +109,7 @@ void BlurNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void BlurNode::OnUpdate()
+void ColorSplitterNode::OnUpdate()
 {
     auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
     if (!connOpt.has_value()) return;
@@ -120,22 +120,33 @@ void BlurNode::OnUpdate()
 
     inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
     if (inputImage.empty()) {
-        std::cout << "Iamcalled\n";
+        std::cerr << "inputImage is empty!" << std::endl;
         return;
     }
-    // apply the blur filter with kernel size and blur radius.
-    cv::Mat blurred;
-    cv::GaussianBlur(inputImage, blurred, cv::Size(kernelSize, kernelSize), blurRadius);
 
-    this->outputImage = blurred;
-    this->inputConnected = true;
+    // Ensure image has 3 channels
+    if (inputImage.channels() != 3) {
+        if (inputImage.channels() == 4)
+            cv::cvtColor(inputImage, inputImage, cv::COLOR_BGRA2BGR);
+        else if (inputImage.channels() == 1)
+            cv::cvtColor(inputImage, inputImage, cv::COLOR_GRAY2BGR);
+    }
 
+    switch (mode) {
+        case OutputMode::RGB:       ProcessRGBMode(inputImage);       break;
+        case OutputMode::Grayscale: ProcessGrayscaleMode(inputImage); break;
+        case OutputMode::HSV:       ProcessHSVMode(inputImage);       break;
+    }
+
+    this->outputImage = outputChannels[selectedChannel];
+
+    inputConnected = true;
     UpdateTexture();
 }
 
-void BlurNode::RenderProperties()
+void ColorSplitterNode::RenderProperties()
 {
-    ImGui::Text("Blur Node Properties");
+    ImGui::Text("Color Splitter Preview");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
@@ -147,56 +158,114 @@ void BlurNode::RenderProperties()
         return;
     }
 
-    ImGui::Text("Blur Properties:");
-    ImGui::SliderInt("Radius", &blurRadius, 1, 20);
-    kernelSize = 2 * blurRadius + 1;
-
-    const char* blurModes[] = { "Uniform", "Horizontal", "Vertical" };
-    ImGui::Combo("Mode", &blurMode, blurModes, IM_ARRAYSIZE(blurModes));
-
-    if (blurMode == 0) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, kernelSize), blurRadius);
+    ImGui::Text("Mode:");
+    const char* modes[] = { "RGB", "Grayscale", "HSV" };
+    int current = static_cast<int>(mode);
+    if (ImGui::Combo("Color Mode", &current, modes, IM_ARRAYSIZE(modes))) {
+        mode = static_cast<OutputMode>(current);
+        OnUpdate();
+        UpdateTexture();
     }
-    else if (blurMode == 1) {
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(kernelSize, 1), blurRadius);
-    }
-    else{
-        cv::GaussianBlur(inputImage, outputImage, cv::Size(1, kernelSize), blurRadius);
-    }
-    // Generate Gaussian kernel using OpenCV
-    cv::Mat kernelX = cv::getGaussianKernel(kernelSize, blurRadius);
-    cv::Mat kernel2D = kernelX * kernelX.t();
 
-    // Normalize for visualization
-    cv::normalize(kernel2D, kernel2D, 0, 1, cv::NORM_MINMAX);
+    ImGui::Separator();
 
-    // Display kernel
-    ImGui::Text("Kernel:");
-    for (int i = 0; i < kernel2D.rows; ++i) {
-        for (int j = 0; j < kernel2D.cols; ++j) {
-            ImGui::Text("%.2f ", kernel2D.at<double>(i, j));
-            ImGui::SameLine();
-        }
-        ImGui::NewLine();
+    ImGui::Text("Preview Channel:");
+    const char* channels[] = { "Channel 0", "Channel 1", "Channel 2" };
+    if (ImGui::Combo("Display", &selectedChannel, channels, IM_ARRAYSIZE(channels))) {
+        this->outputImage = outputChannels[selectedChannel];
+        UpdateTexture();
+    }
+
+    ImGui::Spacing();
+    ImGui::Text("Output mapping:");
+    if (mode == OutputMode::RGB) {
+        ImGui::BulletText("0 = Red");
+        ImGui::BulletText("1 = Green");
+        ImGui::BulletText("2 = Blue");
+    } else if (mode == OutputMode::Grayscale) {
+        ImGui::BulletText("0 = Red intensity");
+        ImGui::BulletText("1 = Green intensity");
+        ImGui::BulletText("2 = Blue intensity");
+    } else if (mode == OutputMode::HSV) {
+        ImGui::BulletText("0 = Hue");
+        ImGui::BulletText("1 = Saturation");
+        ImGui::BulletText("2 = Value");
     }
 }
 
-ImVec2 BlurNode::GetInputSocketPos(int index)
+ImVec2 ColorSplitterNode::GetInputSocketPos(int index)
 {
-    return inputSockets[index].position;
+    return inputSockets[0].position;
 }
 
-ImVec2 BlurNode::GetOutputSocketPos()
+ImVec2 ColorSplitterNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void BlurNode::SetInputImage(const cv::Mat& img)
+void ColorSplitterNode::SetInputImage(const cv::Mat& img)
 {
     inputImage = img;
 }
 
-void BlurNode::UpdateTexture()
+void ColorSplitterNode::ProcessRGBMode(const cv::Mat &input)
+{
+    // Split into BGR channels.
+    std::vector<cv::Mat> channels;
+    cv::split(input, channels);  // OpenCV stores in BGR order.
+
+    if(channels.size() != 3)
+        return;
+
+    // Create a black channel of the same size.
+    cv::Mat zero = cv::Mat::zeros(channels[0].size(), channels[0].type());
+
+    // Build an image for each output:
+    // We want the isolated color channel displayed in its corresponding position.
+    // For display purposes, we merge the isolated channel with zeros.
+    // Note: For "RGB mode", we assume output order: Red, Green, Blue.
+    // Since channels order from cv::split is B, G, R,
+    // we use:
+    std::vector<cv::Mat> redChannels = { zero, zero, channels[2] };
+    cv::merge(redChannels, outputChannels[0]);
+    
+    std::vector<cv::Mat> greenChannels = { zero, channels[1], zero };
+    cv::merge(greenChannels, outputChannels[1]);
+
+    std::vector<cv::Mat> blueChannels = { channels[0], zero, zero };
+    cv::merge(blueChannels, outputChannels[2]);
+}
+
+void ColorSplitterNode::ProcessGrayscaleMode(const cv::Mat &input)
+{
+    // Split channels.
+    std::vector<cv::Mat> channels;
+    cv::split(input, channels);  // B, G, R
+
+    if(channels.size() != 3)
+        return;
+
+    // In grayscale mode, simply output the channel as is.
+    // For preview, we convert to 3 channels (if needed).
+    cv::Mat redGray, greenGray, blueGray;
+    cv::cvtColor(channels[2], outputChannels[0], cv::COLOR_GRAY2BGR);   // Red channel from 3rd element.
+    cv::cvtColor(channels[1], outputChannels[1], cv::COLOR_GRAY2BGR); // Green channel.
+    cv::cvtColor(channels[0], outputChannels[2], cv::COLOR_GRAY2BGR);  // Blue channel.
+}
+
+void ColorSplitterNode::ProcessHSVMode(const cv::Mat &input)
+{
+    cv::Mat hsv;
+    cv::cvtColor(input, hsv, cv::COLOR_BGR2HSV);
+
+    std::vector<cv::Mat> ch;
+    cv::split(hsv, ch); // H, S, V
+
+    for (int i = 0; i < 3; ++i)
+        cv::cvtColor(ch[i], outputChannels[i], cv::COLOR_GRAY2BGR);
+}
+
+void ColorSplitterNode::UpdateTexture()
 {
     if (this->inputImage.empty()) return;
 
@@ -224,24 +293,24 @@ void BlurNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void BlurNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void ColorSplitterNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
     inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
     outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
 }
 
-void BlurNode::InitializeSockets()
+void ColorSplitterNode::InitializeSockets()
 {
     inputSockets.resize(1);
     outputSockets.resize(1);
 }
 
-cv::Mat BlurNode::GetOutputImage(int fromNodeIndex)
+cv::Mat ColorSplitterNode::GetOutputImage(int fromNodeIndex)
 {
     return outputImage;
 }
 
-void BlurNode::ExportImage(const char *path)
+void ColorSplitterNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);

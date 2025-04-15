@@ -50,8 +50,6 @@ void Application::Render() {
 
     if (glfwWindowShouldClose(window)) {
         // After glfwTerminate();
-        std::cout << "Press Enter to exit..." << std::endl;
-        std::cin.get();
         m_Running = false;
         return;
     }

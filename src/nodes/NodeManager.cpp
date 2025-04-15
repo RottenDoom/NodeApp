@@ -2,6 +2,10 @@
 #include "BlurNode.h"
 #include "ContrastNode.h"
 #include "ThresholdNode.h"
+#include "ConvolutionNode.h"
+#include "EdgeNode.h"
+#include "ColorSplitterNode.h"
+#include "BlendNode.h"
 
 void NodeManager::AddImageNode(const char *path)
 {
@@ -29,18 +33,21 @@ void NodeManager::AddNode(const Node::Type type)
             node = std::make_shared<ContrastNode>(id);
             break;
         case Node::COLOR_SPLITTER:
-            // do nothing for now
+            node = std::make_shared<ColorSplitterNode>(id);
             break;
         case Node::THRESHOLD:
             node = std::make_shared<ThresholdNode>(id);
             break;
         case Node::EDGE_DETECTION:
+            node = std::make_shared<EdgeDetectionNode>(id);
             break;
         case Node::BLEND_NODE:
+            node = std::make_shared<BlendNode>(id);
             break;
         case Node::NOISE_GEN:
             break;
         case Node::CONVULATIONAL:
+            node = std::make_shared<ConvolutionNode>(id);
             break;
         default:
             std::cerr << "Unknown node type\n";
@@ -63,16 +70,16 @@ void NodeManager::RenderNodes()
         node->OnRender();
     }
 
-    for (const auto& connection : connections) {
-        int fromId = connection.fromNodeId;
-        int toId = connection.toNodeId;
-        int fromSocket = connection.fromSocketIndex;
-        int toSocket = connection.toSocketIndex;
+    // for (const auto& connection : connections) {
+    //     int fromId = connection.fromNodeId;
+    //     int toId = connection.toNodeId;
+    //     int fromSocket = connection.fromSocketIndex;
+    //     int toSocket = connection.toSocketIndex;
     
-        // Do something with the connection
-        std::cout << "Connection: from Node " << fromId << ":" << "fromsocketIndex: " << fromSocket
-                  << " -> to Node " << toId << ":" << "tosocketIndex: " << toSocket << "\n";
-    }
+    //     // Do something with the connection
+    //     std::cout << "Connection: from Node " << fromId << ":" << "fromsocketIndex: " << fromSocket
+    //               << " -> to Node " << toId << ":" << "tosocketIndex: " << toSocket << "\n";
+    // }
 
     // if we are currently draggin the button
     if (isDragging) {
@@ -91,7 +98,7 @@ void NodeManager::RenderNodes()
 
             const auto& inputSockets = node->GetInputSockets();
             for (int i = 0; i < inputSockets.size(); ++i) {
-                ImVec2 inputPos = node->GetInputSocketPos();
+                ImVec2 inputPos = node->GetInputSocketPos(i);
                 float radius = 25.0f;  // socket size / 2 or something similar
 
                 float dx = endPos.x - inputPos.x;
@@ -119,7 +126,7 @@ void NodeManager::RenderNodes()
         auto toNode = nodeMap[conn.toNodeId];
 
         ImVec2 startPos = fromNode->GetOutputSocketPos();
-        ImVec2 endPos = toNode->GetInputSocketPos();
+        ImVec2 endPos = toNode->GetInputSocketPos(conn.toSocketIndex);
 
         ImVec2 cp1 = startPos + ImVec2(50, 0);
         ImVec2 cp2 = endPos + ImVec2(-50, 0);
@@ -135,6 +142,16 @@ void NodeManager::UpdateNodes()
     for (auto& node : nodes) {
         node->OnUpdate();
     }
+}
+
+void NodeManager::Reset()
+{
+    nodes.clear();
+    connections.clear();
+    nodeMap.clear();
+    isDragging = false;
+    dragStartNode = -1;
+    dragSocketPos = ImVec2(0, 0);
 }
 
 // function that checks if we have started dragging and registers the values of dragging node.

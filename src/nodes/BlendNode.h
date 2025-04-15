@@ -2,11 +2,17 @@
 
 #include "Node.h"
 
-// Blurs node for a given kernel size using Gaussian Blur
-class BlurNode : public Node {
+// Blends two nodes using alpha values.
+class BlendNode : public Node {
 public:
-    BlurNode(int id);
-    ~BlurNode();
+    BlendNode(int id);
+    ~BlendNode();
+
+    enum class BlendMode {
+        Add,
+        Multiply,
+        Alpha
+    };
 
     void OnRender() override;
     void OnUpdate() override;
@@ -19,16 +25,22 @@ public:
     cv::Mat GetOutputImage(int fromSocketIndex);
     void ExportImage(const char* path);
 
-    bool inputConnected;
+    bool inputConnected[2];
 
 private:
+    void ProcessBlend();
     void UpdateTexture();
     void SetNodeSockets(ImVec2 nodeSize, ImVec2 nodePos);
     void InitializeSockets();
 
-    int kernelSize;
-    int blurRadius;
-    float scaleFactor;
-    cv::Mat inputImage;
+    cv::Mat inputImageA;
+    cv::Mat inputImageB;
     cv::Mat outputImage;
+
+    GLuint id = 0;
+    float alpha = 0.5f;
+    BlendMode blendMode;
+    bool inputsConnected[2];
+
+    float scaleFactor;
 };

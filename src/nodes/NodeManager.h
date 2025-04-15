@@ -42,6 +42,7 @@ public:
     // void ReplaceImageInNode(int nodeId, const char* newPath);
     void RenderNodes();
     void UpdateNodes();
+    void Reset();
     // void Clear();
 
     void StartConnectionDrag(int nodeId, SocketType socketType, const ImVec2& socketPos, int socketIndex);

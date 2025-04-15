@@ -4,6 +4,7 @@
 #include "NodeManager.h"
 #include "Framebuffer.h"
 
+// the main image node that acts as output for all other nodes
 class ImageNode : public Node
 {
 public:
@@ -16,7 +17,7 @@ public:
     // void render();
 
     const int GetId() const;
-    ImVec2 GetInputSocketPos();
+    ImVec2 GetInputSocketPos(int index);
     ImVec2 GetOutputSocketPos();
     void renderToFramebuffer();
     cv::Mat GetOutputImage(int fromNodeId);

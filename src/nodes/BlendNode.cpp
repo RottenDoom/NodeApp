@@ -1,27 +1,29 @@
-#include "ContrastNode.h"
+#include "BlendNode.h"
 #include "NodeManager.h"
 
-ContrastNode::ContrastNode(int nodeid)
-    : Node(nodeid)
+static int blurMode = 0;
+
+BlendNode::BlendNode(int nodeid)
+    : Node(nodeid), alpha(0.5f), blendMode(BlendMode::Alpha)
 {
-    type = CONTRAST_AND_BRIGHTNESS;
+    type = BLEND_NODE;
     position = ImVec2(100, 100);
-    brightness = 100;
+    inputsConnected[0] = inputsConnected[1] = false;
 
     this->nodeId = nodeid;
     InitializeSockets();
 }
 
-ContrastNode::~ContrastNode()
+BlendNode::~BlendNode()
 {
 }
 
-void ContrastNode::OnRender()
+void BlendNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Contrast Node " + std::to_string(nodeId);
+    std::string windowName = "Convolution Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -74,15 +76,22 @@ void ContrastNode::OnRender()
 
     ImVec2 socketSize = ImVec2(50, 50);
     
+    for (int i = 0; i < 2; ++i) {
+        ImVec2 localPos = ImVec2(inputSockets[i].position.x - nodePos.x, inputSockets[i].position.y - nodePos.y - 25);
+        ImGui::SetCursorPos(localPos);
+        ImGui::InvisibleButton(("inputSocket" + std::to_string(i)).c_str(), socketSize);
+
+        ImDrawList* fg = ImGui::GetForegroundDrawList();
+        fg->AddCircleFilled(inputSockets[i].position, 6.0f, IM_COL32(0, 255, 0, 255));
+        if (ImGui::IsItemActive()) {
+            NodeManager::GetInstance().StartConnectionDrag(nodeId, NodeManager::SocketType::Input, inputSockets[i].position, i);
+        }
+    }
+
     // setup for the input sockets
     ImVec2 localOutputSocketPos = ImVec2(
         outputSockets[0].position.x - nodePos.x - 50,  // convert screen to local
         outputSockets[0].position.y - nodePos.y -25
-    );
-
-    ImVec2 localInputSocketPos = ImVec2(
-        inputSockets[0].position.x - nodePos.x,
-        inputSockets[0].position.y - nodePos.y - 25
     );
 
     ImGui::SetCursorPos(localOutputSocketPos);
@@ -97,9 +106,6 @@ void ContrastNode::OnRender()
         NodeManager::GetInstance().StartConnectionDrag(this->nodeId, NodeManager::SocketType::Output, outputSockets[0].position, 0);
     }
 
-    ImGui::SetCursorPos(localInputSocketPos);
-    ImGui::InvisibleButton("inputSocket", socketSize);
-
     ImGui::EndGroup();
     ImGui::PopID();
     ImGui::End();
@@ -107,32 +113,37 @@ void ContrastNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void ContrastNode::OnUpdate()
+void BlendNode::OnUpdate()
 {
-    auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
-    if (!connOpt.has_value()) return;
+    inputImageA.release();
+    inputImageB.release();
+    inputsConnected[0] = inputsConnected[1] = false;
 
-    NodeManager::Connection conn = connOpt.value();
-    auto fromNode = NodeManager::GetInstance().GetNodeById(conn.fromNodeId);
-    if (!fromNode) return;
+    for (int i = 0; i < 2; ++i) {
+        auto connOpt = NodeManager::GetInstance().GetInputConnection(nodeId, i);
+        if (!connOpt.has_value()) continue;
 
-    inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
-    if (inputImage.empty()) return;
+        auto fromNode = NodeManager::GetInstance().GetNodeById(connOpt->fromNodeId);
+        if (!fromNode) continue;
 
-    // Apply a blur filter
-    cv::Mat result;
-    inputImage.convertTo(result, -1, contrast, brightness);
+        cv::Mat img = fromNode->GetOutputImage(connOpt->fromSocketIndex);
+        if (!img.empty()) {
+            if (i == 0) inputImageA = img;
+            else inputImageB = img;
+            inputsConnected[i] = true;
+        }
+    }
 
-    // Store result in this node's image
-    this->outputImage = result;
-    this->inputConnected = true;
 
-    UpdateTexture();
+    if (inputsConnected[0] && inputsConnected[1]) {
+        ProcessBlend();
+        UpdateTexture();
+    }
 }
 
-void ContrastNode::RenderProperties()
+void BlendNode::RenderProperties()
 {
-    ImGui::Text("BrightNess & Contrast");
+    ImGui::Text("Blend Node Properties");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
@@ -144,52 +155,57 @@ void ContrastNode::RenderProperties()
         return;
     }
 
-    ImGui::PushID("BrightnessSlider");
-    ImGui::SliderInt("##Brightness", &brightness, -100, 100);
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Brightness")) {
-        brightness = 0;
+    const char* modes[] = { "Add", "Multiply", "Alpha Blend" };
+    int current = static_cast<int>(blendMode);
+    if (ImGui::Combo("Blend Mode", &current, modes, IM_ARRAYSIZE(modes))) {
+        blendMode = static_cast<BlendMode>(current);
     }
-    ImGui::PopID();
 
-    // Contrast slider with reset
-    ImGui::PushID("ContrastSlider");
-    ImGui::SliderFloat("##Contrast", &contrast, 0.0f, 3.0f, "%.2f");
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Contrast")) {
-        contrast = 1.0f;
+    if (blendMode == BlendMode::Alpha) {
+        ImGui::SliderFloat("Alpha", &alpha, 0.0f, 1.0f);
     }
-    ImGui::PopID();
 }
 
-ImVec2 ContrastNode::GetInputSocketPos(int index)
+ImVec2 BlendNode::GetInputSocketPos(int index)
 {
     return inputSockets[index].position;
 }
 
-ImVec2 ContrastNode::GetOutputSocketPos()
+ImVec2 BlendNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void ContrastNode::SetInputImage(const cv::Mat& img)
+void BlendNode::SetInputImage(const cv::Mat& img)
 {
-    inputImage = img;
+    // does nothing
 }
 
-void ContrastNode::UpdateTexture()
-{
-    if (this->inputImage.empty()) return;
+void BlendNode::ProcessBlend() {
+    if (inputImageA.empty() || inputImageB.empty()) return;
 
-    // Convert BGR to RGBA if needed
-    cv::Mat rgbaImage;
-    if (this->inputImage.channels() == 3) {
-        cv::cvtColor(inputImage, rgbaImage, cv::COLOR_BGR2RGBA);
-    } else if (this->inputImage.channels() == 1) {
-        cv::cvtColor(inputImage, rgbaImage, cv::COLOR_GRAY2RGBA);
-    } else {
-        rgbaImage = inputImage;
+    cv::Mat a, b;
+    cv::resize(inputImageA, a, inputImageB.size());
+
+    switch (blendMode) {
+        case BlendMode::Add:
+            cv::add(a, inputImageB, outputImage);
+            break;
+        case BlendMode::Multiply:
+            cv::multiply(a, inputImageB, outputImage, 1.0 / 255);
+            break;
+        case BlendMode::Alpha:
+            cv::addWeighted(a, alpha, inputImageB, 1.0 - alpha, 0.0, outputImage);
+            break;
     }
+}
+
+void BlendNode::UpdateTexture()
+{
+    if (outputImage.empty()) return;
+
+    cv::Mat rgbaImage;
+    cv::cvtColor(outputImage, rgbaImage, cv::COLOR_BGR2RGBA);
 
     // Generate texture if it doesn't exist
     if (this->id == 0) {
@@ -205,25 +221,32 @@ void ContrastNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ContrastNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void BlendNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
-    inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
-    inputSockets[1].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
-    outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
+    if (!inputSockets.empty()) {
+        float spacing = size.y / (inputSockets.size() + 1);
+        for (int i = 0; i < inputSockets.size(); ++i) {
+            inputSockets[i].position = ImVec2(pos.x, pos.y + spacing * (i + 1));
+        }
+    }
+    float spacing = size.y / (outputSockets.size() + 1);
+    for (int i = 0; i < outputSockets.size(); ++i) {
+        outputSockets[i].position = ImVec2(pos.x + size.x, pos.y + spacing * (i + 1));
+    }
 }
 
-void ContrastNode::InitializeSockets()
+void BlendNode::InitializeSockets()
 {
-    inputSockets.resize(1);
+    inputSockets.resize(2);
     outputSockets.resize(1);
 }
 
-cv::Mat ContrastNode::GetOutputImage(int fromNodeId)
+cv::Mat BlendNode::GetOutputImage(int fromNodeIndex)
 {
     return outputImage;
 }
 
-void ContrastNode::ExportImage(const char *path)
+void BlendNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);

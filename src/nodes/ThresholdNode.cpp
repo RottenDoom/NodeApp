@@ -157,6 +157,11 @@ void ThresholdNode::OnUpdate()
             break;
     }
 
+    int histSize = 256;
+    float range[] = {0, 256};
+    const float* histRange = { range };
+    cv::calcHist(&gray, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
+
 
     // Store result in this node's image
     this->outputImage = result;
@@ -171,7 +176,7 @@ void ThresholdNode::RenderProperties()
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
-        ImGui::Image((ImTextureID)(intptr_t)id, ImVec2(160, 90));
+        ImGui::Image((ImTextureID)(intptr_t)id, ImVec2(200, 200));
         ImGui::Spacing();
     } else {
         ImGui::TextColored(ImVec4(1, 1, 0, 1), "No output image available.");
@@ -191,11 +196,30 @@ void ThresholdNode::RenderProperties()
         ImGui::SliderInt("Block Size", &blockSize, 3, 31);
         ImGui::SliderFloat("C", &C, -10.0f, 10.0f);
     }
+
+    // int maxCount = 0;
+    // if (!histogramDataArray) {
+    //     histogramDataArray[256] = { 0 };
+    //     for (int y = 0; y < this->outputImage.rows; ++y) {
+    //         for (int x = 0; x < outputImage.cols; ++x) {
+    //             uchar val = outputImage.at<uchar>(y, x);
+    //             histogramDataArray[val]++;
+    //             maxCount = std::max(maxCount, (int)histogramDataArray[val]);
+    //         }
+    //     }
+    // }
+
+    // // Histogram Preview
+    // ImGui::Text("Histogram:");
+    // ImGui::PlotHistogram("##hist", histogramDataArray, 256, 0, nullptr, 0.0f, 1.0f, ImVec2(0, 60));
+
+    // Output pin
+    // ImGui::Text("Binary Output");
 }
 
-ImVec2 ThresholdNode::GetInputSocketPos()
+ImVec2 ThresholdNode::GetInputSocketPos(int index)
 {
-    return inputSockets[0].position;
+    return inputSockets[index].position;
 }
 
 ImVec2 ThresholdNode::GetOutputSocketPos()

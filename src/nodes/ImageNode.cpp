@@ -62,9 +62,9 @@ const int ImageNode::GetId() const
     return this->nodeId;
 }
 
-ImVec2 ImageNode::GetInputSocketPos()
+ImVec2 ImageNode::GetInputSocketPos(int index)
 {
-    return inputSockets[0].position;
+    return inputSockets[index].position;
 }
 
 ImVec2 ImageNode::GetOutputSocketPos()

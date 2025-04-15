@@ -33,7 +33,7 @@ public:
         return this->nodeId;
     }
     
-    virtual ImVec2 GetInputSocketPos() = 0;
+    virtual ImVec2 GetInputSocketPos(int index) = 0;
     virtual ImVec2 GetOutputSocketPos() = 0;
     virtual cv::Mat GetOutputImage(int fromId) = 0;
     std::vector<NodeSocket> GetInputSockets() {

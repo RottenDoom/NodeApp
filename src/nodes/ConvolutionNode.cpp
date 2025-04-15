@@ -1,27 +1,30 @@
-#include "ContrastNode.h"
+#include "ConvolutionNode.h"
 #include "NodeManager.h"
 
-ContrastNode::ContrastNode(int nodeid)
+static int blurMode = 0;
+
+ConvolutionNode::ConvolutionNode(int nodeid)
     : Node(nodeid)
 {
-    type = CONTRAST_AND_BRIGHTNESS;
+    type = CONVULATIONAL;
     position = ImVec2(100, 100);
-    brightness = 100;
+    kernelSize = 3; // 3 or 5
+    normalization = 1.0f;
 
     this->nodeId = nodeid;
     InitializeSockets();
 }
 
-ContrastNode::~ContrastNode()
+ConvolutionNode::~ConvolutionNode()
 {
 }
 
-void ContrastNode::OnRender()
+void ConvolutionNode::OnRender()
 {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Contrast Node " + std::to_string(nodeId);
+    std::string windowName = "Convolution Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
@@ -107,7 +110,7 @@ void ContrastNode::OnRender()
     ImGui::PopStyleVar();
 }
 
-void ContrastNode::OnUpdate()
+void ConvolutionNode::OnUpdate()
 {
     auto connOpt = NodeManager::GetInstance().GetInputConnection(this->nodeId, 0);
     if (!connOpt.has_value()) return;
@@ -117,22 +120,27 @@ void ContrastNode::OnUpdate()
     if (!fromNode) return;
 
     inputImage = fromNode->GetOutputImage(conn.fromSocketIndex);
-    if (inputImage.empty()) return;
+    if (inputImage.empty()) {
+        std::cerr << "inputImage is empty!" << std::endl;
+        return;
+    }
+    // apply the blur filter with kernel size and blur radius.
+    cv::Mat kernelMat(kernelSize, kernelSize, CV_32F, kernel.data());
+    kernelMat /= normalization;
 
-    // Apply a blur filter
     cv::Mat result;
-    inputImage.convertTo(result, -1, contrast, brightness);
+    
+    cv::filter2D(inputImage, result, -1, kernelMat);
 
-    // Store result in this node's image
     this->outputImage = result;
     this->inputConnected = true;
 
     UpdateTexture();
 }
 
-void ContrastNode::RenderProperties()
+void ConvolutionNode::RenderProperties()
 {
-    ImGui::Text("BrightNess & Contrast");
+    ImGui::Text("Convolution Properties");
 
     if (!outputImage.empty() && id != 0) {
         ImGui::Text("Output Preview:");
@@ -144,40 +152,46 @@ void ContrastNode::RenderProperties()
         return;
     }
 
-    ImGui::PushID("BrightnessSlider");
-    ImGui::SliderInt("##Brightness", &brightness, -100, 100);
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Brightness")) {
-        brightness = 0;
+    ImGui::Combo("Preset", (int*)&preset, "Custom\0Identity\0Blur\0Sharpen\0Edge\0Emboss\0");
+    if (ImGui::Button("Apply Preset")) {
+        ApplyPreset(preset);
+        OnUpdate();
+        UpdateTexture();
     }
-    ImGui::PopID();
 
-    // Contrast slider with reset
-    ImGui::PushID("ContrastSlider");
-    ImGui::SliderFloat("##Contrast", &contrast, 0.0f, 3.0f, "%.2f");
-    ImGui::SameLine();
-    if (ImGui::Button("Reset##Contrast")) {
-        contrast = 1.0f;
+    // kernel editing
+    ImGui::Text("Kernel:");
+    int size = kernelSize * kernelSize;
+    for (int y = 0; y < kernelSize; ++y) {
+        for (int x = 0; x < kernelSize; ++x) {
+            ImGui::PushID(y * kernelSize + x);
+            ImGui::SetNextItemWidth(40);
+            ImGui::InputFloat("", &kernel[y * kernelSize + x], 0.1f, 1.0f, "%.2f");
+            ImGui::PopID();
+            ImGui::SameLine();
+        }
+        ImGui::NewLine();
     }
-    ImGui::PopID();
+
+    ImGui::SliderFloat("Normalization", &normalization, 0.01f, 10.0f);
 }
 
-ImVec2 ContrastNode::GetInputSocketPos(int index)
+ImVec2 ConvolutionNode::GetInputSocketPos(int index)
 {
     return inputSockets[index].position;
 }
 
-ImVec2 ContrastNode::GetOutputSocketPos()
+ImVec2 ConvolutionNode::GetOutputSocketPos()
 {
     return outputSockets[0].position;
 }
 
-void ContrastNode::SetInputImage(const cv::Mat& img)
+void ConvolutionNode::SetInputImage(const cv::Mat& img)
 {
     inputImage = img;
 }
 
-void ContrastNode::UpdateTexture()
+void ConvolutionNode::UpdateTexture()
 {
     if (this->inputImage.empty()) return;
 
@@ -205,25 +219,66 @@ void ContrastNode::UpdateTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ContrastNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
+void ConvolutionNode::SetNodeSockets(ImVec2 size, ImVec2 pos)
 {
     inputSockets[0].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
-    inputSockets[1].position = ImVec2(pos.x, pos.y + size.y * 0.5f);
     outputSockets[0].position = ImVec2(pos.x + size.x, pos.y + size.y * 0.5f);
 }
 
-void ContrastNode::InitializeSockets()
+void ConvolutionNode::InitializeSockets()
 {
     inputSockets.resize(1);
     outputSockets.resize(1);
 }
 
-cv::Mat ContrastNode::GetOutputImage(int fromNodeId)
+void ConvolutionNode::ApplyPreset(KernelPreset p)
+{
+    preset = p;
+
+    if (p == KernelPreset::Identity) {
+        kernel = {
+            0, 0, 0,
+            0, 1, 0,
+            0, 0, 0
+        };
+        normalization = 1.0f;
+    }
+    else if (p == KernelPreset::Blur) {
+        kernel = std::vector<float>(9, 1.0f);
+        normalization = 9.0f;
+    }
+    else if (p == KernelPreset::Sharpen) {
+        kernel = {
+             0, -1,  0,
+            -1,  5, -1,
+             0, -1,  0
+        };
+        normalization = 1.0f;
+    }
+    else if (p == KernelPreset::Edge) {
+        kernel = {
+            -1, -1, -1,
+            -1,  8, -1,
+            -1, -1, -1
+        };
+        normalization = 1.0f;
+    }
+    else if (p == KernelPreset::Emboss) {
+        kernel = {
+            -2, -1,  0,
+            -1,  1,  1,
+             0,  1,  2
+        };
+        normalization = 1.0f;
+    }
+}
+
+cv::Mat ConvolutionNode::GetOutputImage(int fromNodeIndex)
 {
     return outputImage;
 }
 
-void ContrastNode::ExportImage(const char *path)
+void ConvolutionNode::ExportImage(const char *path)
 {
     if (!outputImage.empty()) {
         cv::imwrite(path, outputImage);

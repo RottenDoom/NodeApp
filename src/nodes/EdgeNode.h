@@ -2,17 +2,15 @@
 
 #include "Node.h"
 
-// threshold node for applying binary operations onto the nodes. Otsu and Adaptive modes available
-class ThresholdNode : public Node {
+// Detects edge and applies Sobel or Canny method to emboss at edges.
+class EdgeDetectionNode : public Node {
 public:
-    ThresholdNode(int id);
-    ~ThresholdNode();
+    EdgeDetectionNode(int id);
+    ~EdgeDetectionNode();
 
-    enum class ThresholdMethod {
-        Binary,
-        Otsu,
-        AdaptiveMean,
-        AdaptiveGaussian
+    enum class Method {
+        Sobel,
+        Canny
     };
 
     void OnRender() override;
@@ -33,14 +31,15 @@ private:
     void SetNodeSockets(ImVec2 nodeSize, ImVec2 nodePos);
     void InitializeSockets();
 
-    float threshValue;
-    int blockSize;
-    float C;
-    ThresholdMethod thresholdMethod;
-    bool useOtsu = false;
-    float histogramDataArray[256];
-    cv::Mat hist;
-    float scaleFactor;
+    Method method;
+    int sobelKernelSize;
+    int cannyThreshold1;
+    int cannyThreshold2;
+    bool overlayEdges;
+
     cv::Mat inputImage;
-    cv::Mat outputImage;
+    cv::Mat edgeImage;
+    cv::Mat outputImage;  // potentially overlayed
+
+    float scaleFactor;
 };
