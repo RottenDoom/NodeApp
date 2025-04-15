@@ -23,7 +23,7 @@ void BlendNode::OnRender()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::SetCursorScreenPos(position);
 
-    std::string windowName = "Convolution Node " + std::to_string(nodeId);
+    std::string windowName = "Blend Node " + std::to_string(nodeId);
     ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin(
         windowName.c_str(),
